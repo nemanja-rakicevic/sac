@@ -130,34 +130,7 @@ ENV_PARAMS = {
         'n_epochs': 1000,
         'scale_entropy': 0.1,
     },
-
-
-
-
-    'nemanja-striker': {
-        'prefix': 'nemanja-striker',
-        'env_name': 'StrikerEnv-v0',
-        'max_path_length': 1000,
-        'n_epochs': 1000,
-        'scale_entropy': 0.1,
-    },
-    'nemanja-walker': {
-        'prefix': 'nemanja-walker',
-        'env_name': 'BipedalWalkerEnv-v0',
-        'max_path_length': 1000,
-        'n_epochs': 1000,
-        'scale_entropy': 0.1,
-    },
-    'nemanja-quadruped': {
-        'prefix': 'nemanja-quadruped',
-        'env_name': 'QuadrupedEnv-v0',
-        'max_path_length': 1000,
-        'n_epochs': 1000,
-        'scale_entropy': 0.1,
-    },
 }
-
-
 DEFAULT_ENV = 'swimmer'
 AVAILABLE_ENVS = list(ENV_PARAMS.keys())
 

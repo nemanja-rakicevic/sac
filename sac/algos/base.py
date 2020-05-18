@@ -198,7 +198,6 @@ class RLAlgorithm(Algorithm):
     @abc.abstractmethod
     def _init_training(self, env, policy, pool):
         """Method to be called at the start of training.
-
         :param env: Environment instance.
         :param policy:  Policy instance.
         :return: None
@@ -206,18 +205,10 @@ class RLAlgorithm(Algorithm):
 
         self._env = env
         if self._eval_n_episodes > 0:
-            try: 
-                if 'Bullet' in env._wrapped_env.env.spec.id \
-                or '-v0' in env._wrapped_env.env.spec.id:
-                    self._eval_env = env
-                else:
-                    self._eval_env = deep_clone(env)
-            except:
-                self._eval_env = deep_clone(env)
-
-       
+            self._eval_env = deep_clone(env)
         self._policy = policy
         self._pool = pool
+
 
     @property
     def policy(self):

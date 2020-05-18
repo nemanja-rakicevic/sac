@@ -1,33 +1,41 @@
 name: sac
 channels:
-    - https://conda.anaconda.org/kne
-    - https://conda.anaconda.org/tlatorre
-    - https://conda.anaconda.org/cjs14
-    - https://conda.anaconda.org/menpo
-    - jjhelmus
-    - soumith
+    # - https://conda.anaconda.org/kne
+    # - https://conda.anaconda.org/tlatorre
+    # - https://conda.anaconda.org/cjs14
+    # - https://conda.anaconda.org/menpo
+    # - jjhelmus
+    # - soumith
 dependencies:
-    - python==3.5.2
-    - numpy==1.13.0
+    - python=3.5
+    - pip==10.0.1
+    # - numpy==1.13
+    # - python==3.5.2
+    # - numpy==1.13.0
     - scipy
     - path.py
     - python-dateutil
-    - joblib==0.10.3
     - mako
     - ipywidgets
     - numba
     - flask
-    - pybox2d
-    - pygame
+    # - pybox2d
+    # - pygame
     - h5py
     - matplotlib
-    - opencv3=3.1.0
+    # - opencv3=3.1.0
     - scikit-learn
-    - pytorch==0.1.9
-    - torchvision==0.1.6
+    # - torchvision==0.1.6
     - mpi4py
     - pandas
     - pip:
+        - pytorch==0.1.9
+        - Box2D==2.3.10
+        # - box2d==2.3.2
+        - box2d-kengz==2.3.3
+        - box2d-py==2.3.1
+        # - numpy==1.13.0
+        - joblib==0.10.3
         - Pillow
         - atari-py
         - pyprind

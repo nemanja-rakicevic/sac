@@ -9,6 +9,8 @@ from sac.misc import tf_utils, utils
 from sac.misc.sampler import rollouts
 from sac.policies.hierarchical_policy import FixedOptionPolicy
 
+import behaviour_representations.utils.behaviour_metrics as bmet
+
 from collections import deque
 import gtimer as gt
 import json
@@ -21,20 +23,51 @@ import pdb
 
 EPS = 1E-6
 
+# env._wrapped_env.env_id
+# self.environment.bd_metric.restart()
+
+# self.environment.bd_metric.update(info_dict=info_dict)
+
+
+# trial_metric = self.environment.bd_metric.calculate(
+#                                               traj=self.traj_main,
+#                                               traj_aux=self.traj_aux)
+
+# # Initialise behaviour descriptor metric
+# bd_class = ''.join([s.capitalize() for s in metric['type'].split('_')])
+# self.bd_metric = bmet.__dict__[env_class+bd_class](**metric, 
+#                                                 	 **self.env_info)
+
+
 
 
 class DeterministicFixedOptionPolicy(FixedOptionPolicy):
 
     def get_action(self, obs):
-        aug_obs = concat_obs_z(obs, self._z, self._num_skills)
+        aug_obs = utils.concat_obs_z(obs, self._z, self._num_skills)
         with self._base_policy.deterministic(True): 
             d_action = self._base_policy.get_action(aug_obs)
         return d_action
 
 
 
-
 class DIAYN_BD(DIAYN):
+
+    # def __init__(self, *args, **kwargs):
+
+
+    #     print("\n\n===", args)
+    #     print("---", kwargs)
+
+    #     super().__init__(*args, **kwargs)
+
+    #     # Initialise behaviour descriptor metric
+    #     env_class = env._wrapped_env.env_id.split('Env')[0]
+    #     bd_class = 'GaitGrid'
+    #     self.bd_metric = bmet.__dict__[env_class+bd_class](**metric, 
+    #                                                        **self.env_info)
+
+
 
     def _init_training(self, env, policy, pool):
         """Method to be called at the start of training.
@@ -44,26 +77,28 @@ class DIAYN_BD(DIAYN):
         :return: None
         """
 
-        pdb.set_trace()
-        
+        # Initialise behaviour descriptor metric
+        env_class = env._wrapped_env.env_id.split('Env')[0]
+        bd_class = 'ContactGrid' if 'Striker' in env_class else 'GaitGrid'
+        metric = {"type": "contact_grid", "dim": 30} if 'Striker' in env_class \
+                else {"type": "gait_grid", "dim": 10} 
+        env_info = env._wrapped_env.env.env_info
+        self.bd_metric = bmet.__dict__[env_class+bd_class](**metric, 
+                                                           **env_info)
+
         self._env = env
         if self._eval_n_episodes > 0:
-            try: 
-                if 'Bullet' in env._wrapped_env.env.spec.id \
-                or '-v0' in env._wrapped_env.env.spec.id:
-                    self._eval_env = env
-                else:
-                    self._eval_env = deep_clone(env)
-            except:
+            if 'Bullet' in env._wrapped_env.env_id \
+            or '-v0' in env._wrapped_env.env_id:
+                self._eval_env = env
+            else:
                 self._eval_env = deep_clone(env)
-
-       
         self._policy = policy
         self._pool = pool
 
 
+    def sample_skills_to_bd(self, **kwargs):
 
-    def sample_skills_to_bd(self):
         for z in range(self._num_skills):
             # Make policy  deterministic
             fixed_z_policy = DeterministicFixedOptionPolicy(self._policy, 
@@ -75,7 +110,8 @@ class DIAYN_BD(DIAYN):
                              render=False)
 
             # Convert paths to bd (list)
-            paths[0]['env_info']
+            print(paths[0]['env_infos'])
+            
 
             # Save to file so it's loadable, nump epoch, num episodes
 
@@ -153,6 +189,7 @@ class DIAYN_BD(DIAYN):
                         path_return = 0
                         n_episodes += 1
 
+                        # EPISORE IS DONE n_episodes
 
                     else:
                         aug_obs = aug_next_ob
@@ -175,6 +212,10 @@ class DIAYN_BD(DIAYN):
                     self._p_z = utils._softmax(log_p_z)
 
 
+                # EPOCH IS DONE epoch
+                self.sample_skills_to_bd(n_episodes=n_episodes, epoch=epoch)
+
+                # Epoch
                 self._evaluate(epoch)
 
                 params = self.get_snapshot(epoch)
@@ -198,5 +239,9 @@ class DIAYN_BD(DIAYN):
                 logger.pop_prefix()
 
                 gt.stamp('eval')
+
+
+            # EVALUATION
+            self.sample_skills_to_bd()
 
             env.terminate()

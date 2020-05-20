@@ -29,7 +29,7 @@ DATETIME = datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
 SHARED_PARAMS = {
     'time': DATETIME,
     'seed': [1],
-    'eval_freq': 20,
+    'eval_freq': 100,
     'lr': 3E-4,
     'discount': 0.99,
     'tau': 0.01,
@@ -103,6 +103,7 @@ def parse_args():
 
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--num_skills', type=int, default=None)
+    parser.add_argument('--eval_freq', type=int, default=None)
 
     args = parser.parse_args()
 
@@ -118,6 +119,8 @@ def get_variants(args):
 
     if args.num_skills is not None:
         params.update({'num_skills': args.num_skills})
+    if args.eval_freq is not None:
+        params.update({'eval_freq': args.eval_freq})
 
     vg = VariantGenerator()
     for key, val in params.items():

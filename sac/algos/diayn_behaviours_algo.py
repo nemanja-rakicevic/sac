@@ -24,6 +24,8 @@ import csv
 import time
 import pickle
 from operator import itemgetter 
+from multiprocessing import Pool
+
 
 import pdb
 
@@ -135,8 +137,8 @@ class DIAYN_BD(DIAYN):
         filepath = '{}/ref_data_DIAYN_{}.csv'.format(self.dirname, self.env_id)
         with open(filepath, 'a') as outfile: 
             writer = csv.DictWriter(outfile, 
-                fieldnames = ["nloop", "niter", "nsmp", "nstep", 
-                              "coverage", "fitness", "outcomes", "ratios"])
+                fieldnames = ["nloop", "niter", "nsmp", "nstep", "coverage", 
+                              "fitness", "outcomes", "ratios"])
             writer.writeheader()
 
         # Save the modified arguments
@@ -202,6 +204,8 @@ class DIAYN_BD(DIAYN):
         with open(filepath, 'a') as outfile: 
             writer = csv.writer(outfile) 
             writer.writerows([exploration_data])
+
+
 
 
     def sample_skills_to_bd(self, final=False, **kwargs):
@@ -412,3 +416,85 @@ class DIAYN_BD(DIAYN):
             gt.stamp('eval')
 
             env.terminate()
+
+
+################################################################################
+
+
+    # def _parallel_eval(self, z):
+    #     # Make policy deterministic
+    #     fixed_z_policy = DeterministicFixedOptionPolicy(self._policy, 
+    #                                                     self._num_skills, z)
+    #     # Evaluate skill
+    #     self._eval_env._wrapped_env.env.initialize(seed_task=SEED_TASK)
+    #     paths = rollouts(env=self._eval_env, 
+    #                      policy=fixed_z_policy,
+    #                      path_length=self._max_path_length, 
+    #                      n_paths=1,
+    #                      render=False)
+    #     # Extract trajectory from paths
+    #     traj_main = paths[0]['env_infos']['position']
+    #     traj_aux = paths[0]['env_infos']['position_aux']
+    #     # list_traj_main.append(traj_main)
+    #     # list_traj_aux.append(traj_aux)
+    #     # Extract outcomes from paths
+    #     trial_outcome = self._eval_env._wrapped_env.env.finalize(
+    #                                         state=paths[0]['last_obs'], 
+    #                                         rew_list=paths[0]['rewards'],
+    #                                         traj=traj_main)
+    #     # list_outcomes.append(trial_outcome)
+    #     # Extract and convert bd from paths
+    #     self.bd_metric.restart()
+    #     if self.bd_metric.metric_name == 'contact_grid':
+    #         [self.bd_metric.update({'contact_objects': idict}) \
+    #             for idict in paths[0]['env_infos']['contact_objects']]
+    #     trial_metric = self.bd_metric.calculate(traj=traj_main,
+    #                                             traj_aux=traj_aux)
+    #     # list_skill_bd.append(np.argmax(trial_metric))
+    #     return np.argmax(trial_metric), trial_outcome, traj_main, traj_aux
+
+
+
+
+    # def sample_skills_to_bd(self, final=False, **kwargs):
+    #     """
+    #         Evaluate all the latent skills 
+    #         and extract the behaviour descriptors
+    #     """
+    #     list_traj_main = []
+    #     list_traj_aux = []
+    #     list_outcomes = []
+    #     list_skill_bd = []
+
+    #     eval_time = time.time()
+                                          
+    
+    #     with Pool(processes=10) as pool:  
+    #         outputs = pool.map(self._parallel_eval, np.arange(self._num_skills))
+
+
+    #     pdb.set_trace()
+
+
+    #     eval_time = time.time()-eval_time
+
+    #     # Extract unique data
+    #     unique_bds, unique_idx = np.unique(list_skill_bd, return_index=True)
+    #     n_bd = len(unique_bds)
+    #     unique_outcomes = np.array(list_outcomes)[unique_idx]
+    #     unique_traj_main = itemgetter(*unique_idx)(list_traj_main)
+    #     unique_traj_aux = itemgetter(*unique_idx)(list_traj_aux)
+
+    #     # Save to file at exact point: nump epoch, num episodes
+    #     self._write_discovery(eval_time=eval_time, unique_bds=unique_bds, 
+    #                           unique_outcomes=unique_outcomes, **kwargs)
+
+    #     # Save data at the end
+    #     if final==True:
+    #         unique_bds_1hot = np.zeros((n_bd, self.bd_metric.metric_size))
+    #         unique_bds_1hot[np.arange(n_bd), unique_bds] = 1
+    #         self._save_dataset(**{"outcomes": unique_outcomes, 
+    #                               "traj_main": unique_traj_main,
+    #                               "traj_aux": unique_traj_aux,
+    #                               "metric_bd": unique_bds_1hot})
+

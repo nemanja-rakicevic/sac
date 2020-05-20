@@ -20,9 +20,14 @@ import argparse
 import numpy as np
 import os
 
+import datetime
+
+DATETIME = datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
 
 SHARED_PARAMS = {
+    'time': DATETIME,
     'seed': [1],
+    'eval_freq': 20,
     'lr': 3E-4,
     'discount': 0.99,
     'tau': 0.01,
@@ -35,39 +40,48 @@ SHARED_PARAMS = {
     'snapshot_mode': 'gap',
     'snapshot_gap': 10,
     'sync_pkl': True,
-    'num_skills': 50,
+    'num_skills': 5,
     'scale_entropy': 0.1,
     'include_actions': False,
     'learn_p_z': False,
     'add_p_z': True,
 }
 
-TAG_KEYS = ['seed']
+TAG_KEYS = ['seed', 'time']
 
 ENV_PARAMS = {
     'nemanja-striker': {
-        'prefix': 'nemanja-striker',
+        'prefix': 'striker',
         'env_name': 'StrikerEnv-v0',
         'max_path_length': 1000,
-        'n_epochs': 1000,
+        'n_epochs': 1000000,
         'scale_entropy': 0.1,
         'num_skills': 50,
+        'metric':
+            {"type": "contact_grid", 
+             "dim": 30}
     },
     'nemanja-walker': {
-        'prefix': 'nemanja-walker',
+        'prefix': 'bipedal_walker',
         'env_name': 'BipedalWalkerEnv-v0',
         'max_path_length': 1000,
-        'n_epochs': 1000,
+        'n_epochs': 1000000,
         'scale_entropy': 0.1,
         'num_skills': 50,
+        'metric':
+            {"type": "gait_grid", 
+             "dim": 10}
     },
     'nemanja-quadruped': {
-        'prefix': 'nemanja-quadruped',
+        'prefix': 'quadruped',
         'env_name': 'QuadrupedEnv-v0',
         'max_path_length': 1000,
-        'n_epochs': 1000,
+        'n_epochs': 1000000,
         'scale_entropy': 0.1,
         'num_skills': 50,
+        'metric':
+            {"type": "gait_grid", 
+             "dim": 10}
     },
 }
 
@@ -162,6 +176,11 @@ def run_experiment(variant):
         num_skills=variant['num_skills'],
     )
 
+
+
+    tag = '__'.join(['%s_%s' % (key, variant[key]) for key in TAG_KEYS])
+    log_dir = os.path.join(args.log_dir, tag)
+
     algorithm = DIAYN_BD(
         base_kwargs=base_kwargs,
         env=env,
@@ -180,6 +199,13 @@ def run_experiment(variant):
         include_actions=variant['include_actions'],
         learn_p_z=variant['learn_p_z'],
         add_p_z=variant['add_p_z'],
+
+        # Additional params for behaviour tracking
+        metric=variant['metric'],
+        env_id=variant['prefix'],
+        eval_freq=variant['eval_freq'],
+        log_dir=log_dir,
+
     )
 
     algorithm.train()

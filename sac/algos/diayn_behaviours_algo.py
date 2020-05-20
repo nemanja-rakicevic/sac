@@ -45,7 +45,6 @@ class DeterministicFixedOptionPolicy(FixedOptionPolicy):
 
 class DIAYN_BD(DIAYN):
 
-
     def __init__(self,
                  base_kwargs,
                  env,

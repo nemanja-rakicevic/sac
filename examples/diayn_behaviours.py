@@ -22,6 +22,8 @@ import os
 
 import datetime
 
+import pdb
+
 DATETIME = datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
 
 SHARED_PARAMS = {
@@ -50,7 +52,7 @@ SHARED_PARAMS = {
 TAG_KEYS = ['seed', 'time']
 
 ENV_PARAMS = {
-    'nemanja-striker': {
+    'bd-striker': {
         'prefix': 'striker',
         'env_name': 'StrikerEnv-v0',
         'max_path_length': 1000,
@@ -61,7 +63,7 @@ ENV_PARAMS = {
             {"type": "contact_grid", 
              "dim": 30}
     },
-    'nemanja-walker': {
+    'bd-walker': {
         'prefix': 'bipedal_walker',
         'env_name': 'BipedalWalkerEnv-v0',
         'max_path_length': 1000,
@@ -72,7 +74,7 @@ ENV_PARAMS = {
             {"type": "gait_grid", 
              "dim": 10}
     },
-    'nemanja-quadruped': {
+    'bd-quadruped': {
         'prefix': 'quadruped',
         'env_name': 'QuadrupedEnv-v0',
         'max_path_length': 1000,
@@ -98,6 +100,10 @@ def parse_args():
     parser.add_argument('--exp_name', type=str, default=timestamp())
     parser.add_argument('--mode', type=str, default='local')
     parser.add_argument('--log_dir', type=str, default=None)
+
+    parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--num_skills', type=int, default=None)
+
     args = parser.parse_args()
 
     return args
@@ -108,6 +114,11 @@ def get_variants(args):
     params = SHARED_PARAMS
     params.update(env_params)
 
+    params.update({'seed': args.seed})
+
+    if args.num_skills is not None:
+        params.update({'num_skills': args.num_skills})
+
     vg = VariantGenerator()
     for key, val in params.items():
         if isinstance(val, list):
@@ -116,6 +127,19 @@ def get_variants(args):
             vg.add(key, [val])
 
     return vg
+
+def get_logdir(args, variant):
+    if args.log_dir is None:
+        log_dir = "experiment_data/" \
+                  "ENV_{}_nn_policy__CFG__DIAYN_nskills_{}".format(
+                                    variant['prefix'], variant['num_skills'])
+    else:
+        log_dir = args.log_dir
+    tag = "S{}---{}".format(variant['seed'], variant['time'])
+    log_dir = os.path.join(log_dir, tag)
+    return log_dir
+
+
 
 
 def run_experiment(variant):
@@ -177,10 +201,6 @@ def run_experiment(variant):
     )
 
 
-
-    tag = '__'.join(['%s_%s' % (key, variant[key]) for key in TAG_KEYS])
-    log_dir = os.path.join(args.log_dir, tag)
-
     algorithm = DIAYN_BD(
         base_kwargs=base_kwargs,
         env=env,
@@ -204,7 +224,7 @@ def run_experiment(variant):
         metric=variant['metric'],
         env_id=variant['prefix'],
         eval_freq=variant['eval_freq'],
-        log_dir=log_dir,
+        log_dir=get_logdir(args, variant),
 
     )
 
@@ -215,8 +235,7 @@ def launch_experiments(variant_generator):
     variants = variant_generator.variants()
 
     for i, variant in enumerate(variants):
-        tag = '__'.join(['%s_%s' % (key, variant[key]) for key in TAG_KEYS])
-        log_dir = os.path.join(args.log_dir, tag)
+        log_dir = get_logdir(args, variant)
         print('Launching {} experiments.'.format(len(variants)))
         run_sac_experiment(
             run_experiment,

@@ -137,7 +137,7 @@ class StrikerEnv(gym.Env, EzPickle):
         self.init = False
 
 
-    def initialize(self, init_params, seed_task, **kwargs):
+    def initialize(self, seed_task, init_params=None, **kwargs):
         """ Override default initialisation """
         # Set task seed
         self.seed(seed_task)
@@ -145,9 +145,10 @@ class StrikerEnv(gym.Env, EzPickle):
         # Reset env
         self.reset()
         # Set initial striker pose from parameters
-        self.striker.position.x = xy2pixel(init_params[0], 'W')
-        self.striker.position.y = xy2pixel(init_params[1], 'H')
-        self.striker.angle = init_params[2]
+        if init_params is not None:
+            self.striker.position.x = xy2pixel(init_params[0], 'W')
+            self.striker.position.y = xy2pixel(init_params[1], 'H')
+            self.striker.angle = init_params[2]
         # Set initial puck pose to zero
         # self.puck.position.x = xy2pixel(0, 'W')
         # self.puck.position.y = xy2pixel(0, 'H')

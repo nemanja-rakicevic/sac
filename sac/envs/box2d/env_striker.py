@@ -145,10 +145,14 @@ class StrikerEnv(gym.Env, EzPickle):
         # Reset env
         self.reset()
         # Set initial striker pose from parameters
-        if init_params is not None:
-            self.striker.position.x = xy2pixel(init_params[0], 'W')
-            self.striker.position.y = xy2pixel(init_params[1], 'H')
-            self.striker.angle = init_params[2]
+        if init_params is None:
+            init_params = np.mean(self.param_ranges, axis=1)
+            init_params[1] = -0.3 #np.min(self.param_ranges[1])
+            
+        self.striker.position.x = xy2pixel(init_params[0], 'W')
+        self.striker.position.y = xy2pixel(init_params[1], 'H')
+        self.striker.angle = init_params[2]
+
         # Set initial puck pose to zero
         # self.puck.position.x = xy2pixel(0, 'W')
         # self.puck.position.y = xy2pixel(0, 'H')

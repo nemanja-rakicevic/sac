@@ -36,7 +36,7 @@ SHARED_PARAMS = {
     'K': 4,
     'layer_size': 300,
     'batch_size': 128,
-    'max_pool_size': 1E6,
+    'max_pool_size': 5*1E4,
     'n_train_repeat': 1,
     'epoch_length': 1000,
     'snapshot_mode': 'gap',
@@ -56,7 +56,7 @@ ENV_PARAMS = {
         'prefix': 'striker',
         'env_name': 'StrikerEnv-v0',
         'max_path_length': 1000,
-        'n_epochs': 1000000,
+        'n_epochs': 500000,
         'scale_entropy': 0.1,
         'num_skills': 15300,
         'metric':
@@ -67,7 +67,7 @@ ENV_PARAMS = {
         'prefix': 'bipedal_walker',
         'env_name': 'BipedalWalkerEnv-v0',
         'max_path_length': 1000,
-        'n_epochs': 1000000,
+        'n_epochs': 500000,
         'scale_entropy': 0.1,
         'num_skills': 12500,
         'metric':
@@ -78,7 +78,7 @@ ENV_PARAMS = {
         'prefix': 'quadruped',
         'env_name': 'QuadrupedEnv-v0',
         'max_path_length': 1000,
-        'n_epochs': 1000000,
+        'n_epochs': 500000,
         'scale_entropy': 0.1,
         'num_skills': 32400,
         'metric':

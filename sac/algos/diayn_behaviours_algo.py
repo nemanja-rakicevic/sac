@@ -111,9 +111,9 @@ class DIAYN_BD(DIAYN):
 
 
         config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
-        config.intra_op_parallelism_threads=10
-        config.inter_op_parallelism_threads=10
+        # config.gpu_options.allow_growth = True
+        config.intra_op_parallelism_threads=5
+        config.inter_op_parallelism_threads=5
         self._sess = tf.InteractiveSession(config=config)
 
         self._init_placeholders()

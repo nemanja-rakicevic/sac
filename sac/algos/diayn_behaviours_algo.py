@@ -77,7 +77,6 @@ class DIAYN_BD(DIAYN):
             Same as DIAYN just added behaviour descriptor tracking and passing 
             env and log info.
         """
-
         Serializable.quick_init(self, locals())
         super(SAC, self).__init__(**base_kwargs)
 
@@ -109,6 +108,13 @@ class DIAYN_BD(DIAYN):
         self._Do = self._env.observation_space.flat_dim
 
         self._training_ops = list()
+
+
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.intra_op_parallelism_threads=10 
+        config.inter_op_parallelism_threads=10
+        self._sess = tf.InteractiveSession(config=config)
 
         self._init_placeholders()
         self._init_actor_update()

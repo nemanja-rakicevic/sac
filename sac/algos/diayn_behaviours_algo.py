@@ -191,19 +191,21 @@ class DIAYN_BD(DIAYN):
         n_eval_episodes = n_episodes - self.prev_n_episodes
         self.prev_n_episodes = n_episodes
         n_bds = len(unique_bds)
+        best_fit = max(unique_outcomes[:, 1])
         # Log statistics
         indent = "\t"*8
         logger.log("Epoch: {:4} | Episodes: {} | Evaluaiting {} skills:" \
                    "\n{} Evaluation time: {}" \
                    "\n{} Episodes since last eval: {}" \
-                   "\n{} Total behaviours: {}".format(
+                   "\n{} Total behaviours: {}" \
+                   "\n{} Best fitness: {}".format(
                    n_epoch, n_episodes, self._num_skills,
-                   indent, eval_time, indent, n_eval_episodes, indent, n_bds), 
-                   with_prefix=False)
+                   indent, eval_time, indent, n_eval_episodes, 
+                   indent, n_bds, indent, best_fit), with_prefix=False)
         # Save statistics
         exploration_data = [0]+[n_epoch]+[n_eval_episodes]+[0] \
                             + [n_bds] \
-                            + [max(unique_outcomes[:, 1])] \
+                            + [best_fit] \
                             + [sum(unique_outcomes[:, 0]==0)] \
                             + [-1]
         if not os.path.isdir(self.dirname):
@@ -280,7 +282,6 @@ class DIAYN_BD(DIAYN):
                                   "traj_main": unique_traj_main,
                                   "traj_aux": unique_traj_aux,
                                   "metric_bd": unique_bds_1hot})
-
 
 
 

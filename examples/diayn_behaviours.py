@@ -24,12 +24,15 @@ import datetime
 
 import pdb
 
+
 DATETIME = datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
+EPISODE_LIMIT = 1000000
+
 
 SHARED_PARAMS = {
     'time': DATETIME,
     'seed': [1],
-    'eval_freq': 100,
+    'eval_freq': EPISODE_LIMIT,
     'lr': 3E-4,
     'discount': 0.99,
     'tau': 0.01,

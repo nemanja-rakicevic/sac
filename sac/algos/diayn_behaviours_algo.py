@@ -184,17 +184,19 @@ class DIAYN_BD(DIAYN):
         """ Save trial output info """
         n_eval_episodes = n_episodes - self.prev_n_episodes
         self.prev_n_episodes = n_episodes
-
+        n_bds = len(unique_bds)
         # Log statistics
-        logger.log("(EPOCH {}, EP{}) Evaluaiton of {} skills:"\
-                   "\n\t\t\t\tTime: {};"
-                   "\n\t\t\t\tEpisodes since last eval: {}"
-                   "\n\t\t\t\tTotal behaviours: {}".format(n_epoch, n_episodes,
-                        self._num_skills, eval_time,
-                        n_eval_episodes, len(unique_bds)))
-
+        indent = "\t"*8
+        logger.log("Epoch: {:4} | Episodes: {} | Evaluaiting {} skills:" \
+                   "\n{} Evaluation time: {}" \
+                   "\n{} Episodes since last eval: {}" \
+                   "\n{} Total behaviours: {}".format(
+                   n_epoch, n_episodes, self._num_skills,
+                   indent, eval_time, indent, n_eval_episodes, indent, n_bds), 
+                   with_prefix=False)
+        # Save statistics
         exploration_data = [0]+[n_epoch]+[n_eval_episodes]+[0] \
-                            + [len(unique_bds)] \
+                            + [n_bds] \
                             + [max(unique_outcomes[:, 1])] \
                             + [sum(unique_outcomes[:, 0]==0)] \
                             + [-1]
@@ -348,10 +350,15 @@ class DIAYN_BD(DIAYN):
                         path_return = 0
                         n_episodes += 1
 
-
                         # EPOCH IS DONE epoch
+                        if not epoch % 10:
+                            logger.log("Epoch: {:4} | Episodes: {}".format(
+                                        epoch, n_episodes), with_prefix=False)
+
                         if not n_episodes % self.eval_freq:
-                            self.sample_skills_to_bd(final=epoch==self._n_epochs,
+                            is_final = epoch >= self._n_epochs \
+                                       or n_episodes >= EPISODE_LIMIT
+                            self.sample_skills_to_bd(final=is_final,
                                                      n_epoch=epoch, 
                                                      n_episodes=n_episodes)
 
@@ -369,11 +376,9 @@ class DIAYN_BD(DIAYN):
 
                     gt.stamp('train')
 
-
                     # Terminate after 1000000 episodes
                     if n_episodes >= EPISODE_LIMIT:
                         break
-
 
                 else:
                     continue

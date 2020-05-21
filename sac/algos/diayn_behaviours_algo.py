@@ -218,7 +218,7 @@ class DIAYN_BD(DIAYN):
 
 
 
-    def sample_skills_to_bd(self, final=False, **kwargs):
+    def sample_skills_to_bd(self, **kwargs):
         """
             Evaluate all the latent skills 
             and extract the behaviour descriptors
@@ -275,14 +275,12 @@ class DIAYN_BD(DIAYN):
                               unique_outcomes=unique_outcomes, **kwargs)
 
         # Save data at the end
-        if final==True:
-            unique_bds_1hot = np.zeros((n_bd, self.bd_metric.metric_size))
-            unique_bds_1hot[np.arange(n_bd), unique_bds] = 1
-            self._save_dataset(**{"outcomes": unique_outcomes, 
-                                  "traj_main": unique_traj_main,
-                                  "traj_aux": unique_traj_aux,
-                                  "metric_bd": unique_bds_1hot})
-
+        unique_bds_1hot = np.zeros((n_bd, self.bd_metric.metric_size))
+        unique_bds_1hot[np.arange(n_bd), unique_bds] = 1
+        self._save_dataset(**{"outcomes": unique_outcomes, 
+                              "traj_main": unique_traj_main,
+                              "traj_aux": unique_traj_aux,
+                              "metric_bd": unique_bds_1hot})
 
 
     def _train(self, env, policy, pool):
@@ -363,10 +361,9 @@ class DIAYN_BD(DIAYN):
                                         epoch, n_episodes), with_prefix=False)
 
                         if not n_episodes % self.eval_freq:
-                            is_final = epoch >= self._n_epochs \
-                                       or n_episodes >= EPISODE_LIMIT
-                            self.sample_skills_to_bd(final=is_final,
-                                                     n_epoch=epoch, 
+                            # is_final = epoch >= self._n_epochs \
+                            #            or n_episodes >= EPISODE_LIMIT
+                            self.sample_skills_to_bd(n_epoch=epoch, 
                                                      n_episodes=n_episodes)
 
                             gt.stamp('behaviours')

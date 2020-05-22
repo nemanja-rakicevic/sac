@@ -32,7 +32,7 @@ EPISODE_LIMIT = 1000000
 SHARED_PARAMS = {
     'time': DATETIME,
     'seed': [1],
-    'eval_freq': EPISODE_LIMIT,
+    'eval_freq': 2000,
     'lr': 3E-4,
     'discount': 0.99,
     'tau': 0.01,

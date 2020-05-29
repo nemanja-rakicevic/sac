@@ -7,7 +7,6 @@ Description:
                 
 """
 
-import pdb
 
 import sys
 import math
@@ -26,11 +25,9 @@ Resources:
 - https://www.iforce2d.net/b2dtut/constant-speed
 """
 
-MAX_EP_LENGTH = 1000/20
-
 SCALE  = 5.0   # affects how fast-paced the game is, forces should be adjusted as well
 
-_VEL_THRSH = .009
+_VEL_THRSH = .009   ### UNNECESSARILY LOW
 _REW_THRSH = 0.2
 _EPS = 1e-06
 
@@ -98,6 +95,8 @@ class ContactDetector(contactListener):
 
 class StrikerEnv(gym.Env, EzPickle):
 
+    MAX_AGENT_STEPS = 100
+
     def __init__(self):
         EzPickle.__init__(self)
         # Initialise environment objects
@@ -108,13 +107,11 @@ class StrikerEnv(gym.Env, EzPickle):
         self.target = None  # make this a list in the future
         self.walls = []
         self.contact_objects = []
-
         # Define observation and action spaces
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, 
-                                            shape=(14,))  #, dtype=np.float32)
-        self.action_space = spaces.Box(low=-1.*MOTOR_GAIN, high=1.*MOTOR_GAIN, 
-                                       shape=(3,))  #, dtype=np.float32)
-        
+                                            shape=(14,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1*MOTOR_GAIN, high=1*MOTOR_GAIN, 
+                                       shape=(3,), dtype=np.float32)
         # Set environment info_dict
         self.viewer = None
         target_info = [{'xy': (-0.5, 1.), 'radius': 0.25 }]                   ### FIX THIS
@@ -135,6 +132,7 @@ class StrikerEnv(gym.Env, EzPickle):
         # Reset environment
         self.reset()
         self.init = False
+
 
 
     def initialize(self, seed_task, init_params=None, **kwargs):
@@ -165,7 +163,7 @@ class StrikerEnv(gym.Env, EzPickle):
         return state, traj_ball, traj_striker
 
 
-    def finalize(self, state, traj, **kwargs):
+    def finalize(self, state, traj_aux, **kwargs):
         """ Define outcome: target index if within range, or -1 if failed """
         reward = self._get_reward(state)
         # returns closest target index if within threshold, otherwise -1
@@ -173,19 +171,19 @@ class StrikerEnv(gym.Env, EzPickle):
         # trial_outcome = np.argmin(reward[:-1]) \
         #                 if np.sum(reward[-1])>0. and \
         #                    np.min(reward[:-1])<=_REW_THRSH else -1
-        trial_fitness = MAX_EP_LENGTH - len(traj)
+        trial_fitness = -len(np.unique(traj_aux.astype(np.float16), axis=0))
         return np.array([trial_outcome, trial_fitness])
 
 
     def _get_done(self, action, state):
         # episode is done when the ball stops, or complete miss
-        ball_vel = np.linalg.norm(state[10:12])
+        puck_vel = np.linalg.norm(state[10:12])
         puck_pos = np.linalg.norm(state[3:5]) 
         strk_vel = np.linalg.norm(action)
-        done = ball_vel<=_VEL_THRSH and puck_pos>_EPS or \
-               strk_vel<=_VEL_THRSH and np.isclose(puck_pos, 0., atol=_EPS)
-        # done = ball_vel<=_VEL_THRSH and puck_pos>0 or \
-        #        strk_vel<=_VEL_THRSH and puck_pos==0.
+        # Termination conditions
+        done = puck_vel<=_VEL_THRSH and puck_pos>_EPS or \
+               puck_vel<=_VEL_THRSH and strk_vel<=_VEL_THRSH 
+               # and np.isclose(puck_pos, 0., atol=_EPS)
         return done and not self.init
 
 
@@ -328,7 +326,9 @@ class StrikerEnv(gym.Env, EzPickle):
         # return self.step(np.array([0,0,0]))[0]
 
 
-    def step(self, action):
+    def step(self, action, nstep):
+        if nstep > self.MAX_AGENT_STEPS: 
+            action = 0 * action
         # action = MOTOR_GAIN * np.clip(action, -1, +1).astype(np.float32)
         action = np.array([10,10,1]) * action
         # Apply action

@@ -12,12 +12,17 @@ from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revolute
 
 from behaviour_representations.utils.utils import _SEED
 
+
+import pdb
+
 ### REFERENCE:
 # https://github.com/alirezamika/bipedal-es/blob/master/bipedal.py
 # https://github.com/openai/gym/blob/52e66f38081548e38711f51d4439d8bcc136d19e/gym/envs/box2d/bipedal_walker.py#L357
 
+
 REWARD_THRSH = 20
-_VEL_THRSH = .0005
+_VEL_THRSH = .05
+_EPS = 1e-05
 
 
 FPS    = 50
@@ -40,12 +45,59 @@ LEG_W, LEG_H = 8/SCALE, 34/SCALE
 VIEWPORT_W = 600
 VIEWPORT_H = 400
 
+# DD = VIEWPORT_W/SCALE/40
+BALLR = 10/SCALE  #VIEWPORT_W/SCALE/(2000/SCALE)
+
 TERRAIN_STEP   = 14/SCALE
 TERRAIN_LENGTH = 200     # in steps
 TERRAIN_HEIGHT = VIEWPORT_H/SCALE/4
 TERRAIN_GRASS    = 10    # low long are grass spots, in steps
 TERRAIN_STARTPAD = TERRAIN_LENGTH/2    # in steps
 FRICTION = 2.5
+
+BALL_START = TERRAIN_STEP*TERRAIN_STARTPAD
+
+
+BIPED_CATEGORY = 0b0010
+BIPED_MASK = 0b0101
+
+BALL_CATEGORY = 0b0100
+BALL_MASK = 0b0011
+
+
+HULL_FD = fixtureDef(
+                shape=polygonShape(vertices=[ (x/SCALE,y/SCALE) for x,y in HULL_POLY ]),
+                density=5.0,
+                friction=0.1,
+                categoryBits=BIPED_CATEGORY,
+                maskBits=BIPED_MASK,  # collide only with ground
+                restitution=0.0) # 0.99 bouncy
+
+LEG_FD = fixtureDef(
+                    shape=polygonShape(box=(LEG_W/2, LEG_H/2)),
+                    density=1.0,
+                    restitution=0.0,
+                    categoryBits=BIPED_CATEGORY,
+                    maskBits=BIPED_MASK)
+
+LOWER_FD = fixtureDef(
+                    shape=polygonShape(box=(0.8*LEG_W/2, LEG_H/2)),
+                    density=1.0,
+                    restitution=0.0,
+                    categoryBits=BIPED_CATEGORY,
+                    maskBits=BIPED_MASK)
+
+
+BALL_FD = fixtureDef(
+                shape=circleShape(pos=(0,0), radius=BALLR),
+                density=0.5,
+                friction=0.9,
+                categoryBits=BALL_CATEGORY,
+                maskBits=BALL_MASK,  # collide only with ground
+                restitution=0.7) # 0.99 bouncy
+          
+BALL_DAMPING = 1.
+
 
 
 class ContactDetector(contactListener):
@@ -64,7 +116,9 @@ class ContactDetector(contactListener):
                 leg.ground_contact = False
 
 
-class BipedalWalkerEnv(BipedalWalker):
+class BipedalKickerEnv(BipedalWalker):
+
+    MAX_AGENT_STEPS = 100
 
     def __init__(self):
         self.init_body = 0
@@ -76,26 +130,46 @@ class BipedalWalkerEnv(BipedalWalker):
             num_obstacles=0,
             wall_geoms=None,
             ball_geom=None,
-            target_info=[{'xy': (20, 0)}],
+            target_info=[{'xy': (BALL_START, 0)}],
             striker_ranges=None,
             ball_ranges=None)
 
+        self.init = False
+        high = np.array([np.inf] * (24+4))  # add ball pos and vel to obs
+        self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
-    def _get_info_dict(self, obs=None):
+
+    def _get_info_dict(self, obs, action=np.zeros(4)):
+        ball_pos = obs[24:26]
+        hull_pose = np.append(np.array(self.unwrapped.hull.position), 
+                              self.unwrapped.hull.angle)
         contact_info = obs[np.array([8, 13])] if obs is not None else []
         velocity_info = np.array(self.unwrapped.hull.linearVelocity)
         hip_angle = obs[np.array([4,9])] if obs is not None else [1,1]
         rel_angle = np.abs(hip_angle[0] - hip_angle[1])  # 0-2
         # rel_angle = cosine(*leg_angle)  # 0-2
-        info_dict = dict(position=np.append(
-                            np.array(self.unwrapped.hull.position), 
-                            self.unwrapped.hull.angle),
-                         position_aux=np.hstack([contact_info,
+        info_dict = dict(position=ball_pos,
+                         position_aux=np.hstack([hull_pose,
+                                                 contact_info,
                                                  rel_angle, 
-                                                 velocity_info]),
+                                                 velocity_info,
+                                                 action]),
                          velocity=velocity_info,
                          angle=np.array(self.unwrapped.hull.angle))
         return info_dict
+
+
+    def _get_done(self, action, obs, done):
+        # episode is done when the ball stops, or complete miss
+        ball_pos_x = np.linalg.norm(obs[24]) 
+        ball_vel = np.linalg.norm(obs[-2:])
+        biped_vel = np.linalg.norm(np.array(self.unwrapped.hull.linearVelocity))
+        # Termination conditions
+        done = done or \
+               ball_vel<=_VEL_THRSH and abs(ball_pos_x-BALL_START)>_EPS or \
+               ball_vel<=_VEL_THRSH and biped_vel<=_VEL_THRSH 
+               # and np.isclose(ball_pos_x, 0., atol=_EPS)               
+        return done
 
 
     def initialize(self, seed_task, **kwargs):
@@ -110,17 +184,22 @@ class BipedalWalkerEnv(BipedalWalker):
         return obs, info_dict['position'], info_dict['position_aux']
 
 
-    def finalize(self, rew_list, **kwargs):
-        info_dict = self._get_info_dict()
+    def finalize(self, state, rew_list, **kwargs):
+        info_dict = self._get_info_dict(state)
         reward_len = np.linalg.norm(info_dict['position'][0]-self.init_body)
         outcome = -1  # 0 if reward_len >= REWARD_THRSH else -1
         return np.array([outcome, np.sum(rew_list)])
 
 
-    def step(self, action):
+    def step(self, action, nstep):
+        if nstep > self.MAX_AGENT_STEPS: 
+            action = 0 * action
         obs, rew, done, _ = super().step(action)
-        info_dict = self._get_info_dict(obs)
-        done = done or np.linalg.norm(info_dict['velocity'])<=_VEL_THRSH
+        # Add ball position and velocity to observation
+        obs = np.concatenate([obs, self.ball.position, self.ball.linearVelocity])
+
+        info_dict = self._get_info_dict(obs, action)
+        done = self._get_done(action, obs, done)
         return obs, rew, done, info_dict
 
 #####
@@ -217,21 +296,14 @@ class BipedalWalkerEnv(BipedalWalker):
         self._generate_clouds()
 
         # init_x = TERRAIN_STARTPAD/4
-        init_x = TERRAIN_STEP*TERRAIN_STARTPAD
+        init_x = TERRAIN_STEP*(TERRAIN_STARTPAD-5)
         init_y = TERRAIN_HEIGHT+2*LEG_H
         self.hull = self.world.CreateDynamicBody(
             position = (init_x, init_y),
-            fixtures = fixtureDef(
-                shape=polygonShape(vertices=[ (x/SCALE,y/SCALE) for x,y in HULL_POLY ]),
-                density=5.0,
-                friction=0.1,
-                categoryBits=0x0020,
-                maskBits=0x001,  # collide only with ground
-                restitution=0.0) # 0.99 bouncy
-                )
+            fixtures = HULL_FD)
         self.hull.color1 = (0.5,0.4,0.9)
         self.hull.color2 = (0.3,0.3,0.5)
-        self.hull.ApplyForceToCenter((self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM), 0), True)
+        # self.hull.ApplyForceToCenter((self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM), 0), True)
 
         self.legs = []
         self.joints = []
@@ -239,13 +311,7 @@ class BipedalWalkerEnv(BipedalWalker):
             leg = self.world.CreateDynamicBody(
                 position = (init_x, init_y - LEG_H/2 - LEG_DOWN),
                 angle = (i*0.05),
-                fixtures = fixtureDef(
-                    shape=polygonShape(box=(LEG_W/2, LEG_H/2)),
-                    density=1.0,
-                    restitution=0.0,
-                    categoryBits=0x0020,
-                    maskBits=0x001)
-                )
+                fixtures = LEG_FD)
             leg.color1 = (0.6-i/10., 0.3-i/10., 0.5-i/10.)
             leg.color2 = (0.4-i/10., 0.2-i/10., 0.3-i/10.)
             rjd = revoluteJointDef(
@@ -266,13 +332,7 @@ class BipedalWalkerEnv(BipedalWalker):
             lower = self.world.CreateDynamicBody(
                 position = (init_x, init_y - LEG_H*3/2 - LEG_DOWN),
                 angle = (i*0.05),
-                fixtures = fixtureDef(
-                    shape=polygonShape(box=(0.8*LEG_W/2, LEG_H/2)),
-                    density=1.0,
-                    restitution=0.0,
-                    categoryBits=0x0020,
-                    maskBits=0x001)
-                )
+                fixtures = LOWER_FD)
             lower.color1 = (0.6-i/10., 0.3-i/10., 0.5-i/10.)
             lower.color2 = (0.4-i/10., 0.2-i/10., 0.3-i/10.)
             rjd = revoluteJointDef(
@@ -291,7 +351,18 @@ class BipedalWalkerEnv(BipedalWalker):
             self.legs.append(lower)
             self.joints.append(self.world.CreateJoint(rjd))
 
-        self.drawlist = self.terrain + self.legs + [self.hull]
+        # Ball
+        ball_init_x = BALL_START
+        ball_init_y = TERRAIN_HEIGHT + BALLR * 2
+        self.ball = self.world.CreateDynamicBody(
+            position = (ball_init_x, ball_init_y),
+            angle=0.0,
+            linearDamping = BALL_DAMPING,
+            fixtures = BALL_FD)
+        self.ball.color1 = (0.9,0.4,0.4)
+        self.ball.color2 = (0.9,0.4,0.4)
+
+        self.drawlist = self.terrain + self.legs + [self.hull] + [self.ball]
 
         class LidarCallback(Box2D.b2.rayCastCallback):
             def ReportFixture(self, fixture, point, normal, fraction):
@@ -302,4 +373,40 @@ class BipedalWalkerEnv(BipedalWalker):
                 return 0
         self.lidar = [LidarCallback() for _ in range(10)]
 
-        return self.step(np.array([0,0,0,0]))[0]
+        return self.step(np.array([0,0,0,0]), 0)[0]
+
+
+
+    def _generate_terrain(self, hardcore):
+        GRASS, STUMP, STAIRS, PIT, _STATES_ = range(5)
+        state    = GRASS
+        velocity = 0.0
+        y        = TERRAIN_HEIGHT
+        counter  = TERRAIN_STARTPAD
+        oneshot  = False
+        self.terrain   = []
+        self.terrain_x = []
+        self.terrain_y = []
+        for i in range(TERRAIN_LENGTH):
+            x = i*TERRAIN_STEP
+            self.terrain_x.append(x)
+            self.terrain_y.append(y)
+
+        self.terrain_poly = []
+        for i in range(TERRAIN_LENGTH-1):
+            poly = [
+                (self.terrain_x[i],   self.terrain_y[i]),
+                (self.terrain_x[i+1], self.terrain_y[i+1])
+                ]
+            self.fd_edge.shape.vertices=poly
+            # self.fd_edge.friction=100
+            t = self.world.CreateStaticBody(
+                fixtures = self.fd_edge)
+            color = (0.3, 1.0 if i%2==0 else 0.8, 0.3)
+            t.color1 = color
+            t.color2 = color
+            self.terrain.append(t)
+            color = (0.4, 0.6, 0.3)
+            poly += [ (poly[1][0], 0), (poly[0][0], 0) ]
+            self.terrain_poly.append( (poly, color) )
+        self.terrain.reverse()

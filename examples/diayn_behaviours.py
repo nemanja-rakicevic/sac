@@ -28,6 +28,7 @@ import pdb
 DATETIME = datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
 EPISODE_LIMIT = 1000000
 
+TAG_KEYS = ['seed', 'time']
 
 SHARED_PARAMS = {
     'time': DATETIME,
@@ -52,7 +53,6 @@ SHARED_PARAMS = {
     'add_p_z': True,
 }
 
-TAG_KEYS = ['seed', 'time']
 
 ENV_PARAMS = {
     'bd-striker': {

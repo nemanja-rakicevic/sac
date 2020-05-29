@@ -184,6 +184,10 @@ class StrikerEnv(gym.Env, EzPickle):
         done = puck_vel<=_VEL_THRSH and puck_pos>_EPS or \
                puck_vel<=_VEL_THRSH and strk_vel<=_VEL_THRSH 
                # and np.isclose(puck_pos, 0., atol=_EPS)
+        # print("\n===", self.nstep_internal, puck_vel, strk_vel, action)
+        # print("===", puck_vel<=_VEL_THRSH , puck_pos>_EPS)
+        # print("===", puck_vel<=_VEL_THRSH ,puck_vel<=_VEL_THRSH, np.isclose(puck_pos, 0., atol=_EPS))
+        # print("===", done)
         return done and not self.init
 
 
@@ -247,6 +251,7 @@ class StrikerEnv(gym.Env, EzPickle):
 
 
     def reset(self):
+        self.nstep_internal = -1
         self._destroy()
         self.world.contactListener_keepref = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_keepref
@@ -326,9 +331,10 @@ class StrikerEnv(gym.Env, EzPickle):
         # return self.step(np.array([0,0,0]))[0]
 
 
-    def step(self, action, nstep):
-        if nstep > self.MAX_AGENT_STEPS: 
+    def step(self, action):
+        if self.nstep_internal > self.MAX_AGENT_STEPS: 
             action = 0 * action
+        self.nstep_internal += 1
         # action = MOTOR_GAIN * np.clip(action, -1, +1).astype(np.float32)
         action = np.array([10,10,1]) * action
         # Apply action

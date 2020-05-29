@@ -6,7 +6,7 @@ from rllab.misc.overrides import overrides
 from sac.algos.sac import SAC
 from sac.algos.diayn import DIAYN
 from sac.misc import tf_utils, utils
-from sac.misc.sampler import rollouts
+from sac.misc.sampler_behaviours import rollouts
 from sac.policies.hierarchical_policy import FixedOptionPolicy
 
 import behaviour_representations.utils.behaviour_metrics as bmet
@@ -289,6 +289,10 @@ class DIAYN_BD(DIAYN):
 
         with self._sess.as_default():
             env._wrapped_env.env.initialize(seed_task=SEED_TASK)
+
+
+            pdb.set_trace()
+
             observation = env.reset()
             policy.reset()
             log_p_z_episode = []  # Store log_p_z for this episode

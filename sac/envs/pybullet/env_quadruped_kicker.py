@@ -88,20 +88,21 @@ class BoundedStadiumScene(Scene):
             filename = os.path.join(os.path.dirname(__file__), 
                                     "assets/plane_bounded.sdf")
             self.ground_plane_mjcf = self._p.loadSDF(filename)
-            self._p.changeDynamics(0, -1, lateralFriction=.8, restitution=0.5,rollingFriction=0.005)
+            self._p.changeDynamics(0, -1, lateralFriction=.8, restitution=0.5, rollingFriction=0.005)
             # self._p.changeVisualShape(i, -1, rgbaColor=[1, 1, 1, 1])
             # self._p.configureDebugVisualizer(pybullet.COV_ENABLE_PLANAR_REFLECTION,i)
             for i in range(1, len(self.ground_plane_mjcf)):
-                self._p.changeDynamics(i, -1, lateralFriction=100,  
-                                              linearDamping=100,
-                                              rollingFriction=0.1,
+                self._p.changeDynamics(i, -1, 
+                                              # lateralFriction=100,  
+                                              # linearDamping=100,
+                                              # rollingFriction=0.1,
                                               # spinningFriction=0.03,
-                                              restitution=.9)
+                                              restitution=1)
             # Add ball
             filename = os.path.join(os.path.dirname(__file__), 
                                     "assets/ball_blue.urdf")
             ball_body = self._p.loadURDF(filename, self.ball_pos)
-            self._p.changeDynamics(ball_body, -1, restitution=0.9, mass=2.5)#,rollingFriction=0.001)
+            self._p.changeDynamics(ball_body, -1, restitution=1, mass=2.5)#,rollingFriction=0.001)
             # Add Obstacle to scene
             # self.obstacle = get_cube(self._p, 3.25, 0, 0.25)
             self.ground_plane_mjcf += (ball_body, )
@@ -193,7 +194,7 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
     foot_list = ['front_left_foot', 'front_right_foot', 'left_back_foot', 'right_back_foot']
 
     """
-    MAX_AGENT_STEPS = 200
+    MAX_AGENT_STEPS = 100
 
     def __init__(self, render=False):
         self.init = True
@@ -242,6 +243,7 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
 
 
     def reset(self):
+        self.nstep_internal = -1
         self.contact_objects = []
         r = super().reset()
         self.prev_ball_vx = 0
@@ -325,8 +327,9 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
         done = ball_vel<=_VEL_THRSH and ball_pos>_EPS or \
                ball_vel<=_VEL_THRSH and strk_vel<=_VEL_THRSH
                # and np.isclose(ball_pos, 0., atol=_EPS)
-        # print("\n===", ball_vel, ball_vel<=_VEL_THRSH , ball_pos>_EPS)
-        # print("===", strk_vel<=_VEL_THRSH , np.isclose(ball_pos, 0., atol=_EPS))
+        # print("\n===", self.nstep_internal, ball_vel, strk_vel, action)
+        # print("===", ball_vel<=_VEL_THRSH , ball_pos>_EPS)
+        # print("===", strk_vel<=_VEL_THRSH ,ball_vel<=_VEL_THRSH, np.isclose(ball_pos, 0., atol=_EPS))
         # print("===", done)
         return done and not self.init
 
@@ -388,9 +391,10 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
         return np.where(contact)[0]+1
 
 
-    def step(self, action, nstep):
-        if nstep > self.MAX_AGENT_STEPS: 
+    def step(self, action):
+        if self.nstep_internal > self.MAX_AGENT_STEPS: 
             action = 0 * action
+        self.nstep_internal += 1
         state, rew, done, _ = super().step(action)
         assert len(state)==self.observation_space.shape[0]
         info_dict = self._get_info_dict(state, action)

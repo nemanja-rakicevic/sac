@@ -168,7 +168,12 @@ class BipedalKickerEnv(BipedalWalker):
         done = done or \
                ball_vel<=_VEL_THRSH and abs(ball_pos_x-BALL_START)>_EPS or \
                ball_vel<=_VEL_THRSH and biped_vel<=_VEL_THRSH 
-               # and np.isclose(ball_pos_x, 0., atol=_EPS)               
+               # and np.isclose(ball_pos_x, 0., atol=_EPS)   
+        # print("\n===", self.nstep_internal, ball_vel, biped_vel, action)
+        # print("===", ball_vel<=_VEL_THRSH , abs(ball_pos_x-BALL_START)>_EPS)
+        # print("===", biped_vel<=_VEL_THRSH , ball_vel<=_VEL_THRSH, 
+        #     np.isclose(abs(ball_pos_x-BALL_START), 0., atol=_EPS))
+        # print("===", done)            
         return done
 
 
@@ -191,13 +196,13 @@ class BipedalKickerEnv(BipedalWalker):
         return np.array([outcome, np.sum(rew_list)])
 
 
-    def step(self, action, nstep):
-        if nstep > self.MAX_AGENT_STEPS: 
+    def step(self, action):
+        if self.nstep_internal > self.MAX_AGENT_STEPS: 
             action = 0 * action
+        self.nstep_internal += 1
         obs, rew, done, _ = super().step(action)
         # Add ball position and velocity to observation
         obs = np.concatenate([obs, self.ball.position, self.ball.linearVelocity])
-
         info_dict = self._get_info_dict(obs, action)
         done = self._get_done(action, obs, done)
         return obs, rew, done, info_dict
@@ -281,6 +286,7 @@ class BipedalKickerEnv(BipedalWalker):
 
 
     def reset(self):
+        self.nstep_internal = -1
         self._destroy()
         self.world.contactListener_bug_workaround = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_bug_workaround
@@ -373,7 +379,7 @@ class BipedalKickerEnv(BipedalWalker):
                 return 0
         self.lidar = [LidarCallback() for _ in range(10)]
 
-        return self.step(np.array([0,0,0,0]), 0)[0]
+        return self.step(np.array([0,0,0,0]))[0]
 
 
 

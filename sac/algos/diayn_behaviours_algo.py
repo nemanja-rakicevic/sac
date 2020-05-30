@@ -113,7 +113,7 @@ class DIAYN_BD(DIAYN):
 
         config = tf.ConfigProto()
         # config.gpu_options.allow_growth = True
-        config.intra_op_parallelism_threads=5
+        config.intra_op_parallelism_threads=2
         config.inter_op_parallelism_threads=5
         self._sess = tf.InteractiveSession(config=config)
 
@@ -248,12 +248,13 @@ class DIAYN_BD(DIAYN):
             traj_main = paths[0]['env_infos']['position']
             traj_aux = paths[0]['env_infos']['position_aux']
             list_traj_main.append(traj_main)
-            list_traj_aux.append(traj_main)
+            list_traj_aux.append(traj_aux)
             # Extract outcomes from paths
             trial_outcome = self._eval_env._wrapped_env.env.finalize(
                                                 state=paths[0]['last_obs'], 
                                                 rew_list=paths[0]['rewards'],
-                                                traj=traj_main)
+                                                traj=traj_main,
+                                                traj_aux=traj_aux)
             list_outcomes.append(trial_outcome)
             # Extract and convert bd from paths
             self.bd_metric.restart()

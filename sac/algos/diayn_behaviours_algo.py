@@ -131,7 +131,7 @@ class DIAYN_BD(DIAYN):
         self.eval_freq = eval_freq
         self.env_id = env_id
         logger.set_snapshot_dir(self.dirname)
-        logger.log("EXPERIMENT NAME: {} (evals: {})".format(self.dirname,
+        logger.log("EXPERIMENT NAME: {} (eval freq: {})".format(self.dirname,
                                                             self.eval_freq))
 
         # Initialise behaviour descriptor metric
@@ -231,8 +231,11 @@ class DIAYN_BD(DIAYN):
         list_outcomes = []
         list_skill_bd = []
 
+        log_freq = max(self._num_skills//10, 10)
+
         eval_time = time.time()
-                                                                                ### PARALELIZE THIS
+                              
+        logger.log("EVALUATING: {} skills.".format(self._num_skills))                                                  ### PARALELIZE THIS
         for z in range(self._num_skills):
             # Make policy deterministic
             fixed_z_policy = DeterministicFixedOptionPolicy(self._policy, 
@@ -264,6 +267,11 @@ class DIAYN_BD(DIAYN):
             trial_metric = self.bd_metric.calculate(traj=traj_main,
                                                     traj_aux=traj_aux)
             list_skill_bd.append(np.argmax(trial_metric))
+            
+            if not z % log_freq:
+                logger.log("\teval {:5} skills - {} behaviours.".format(
+                    z, len(np.unique(list_skill_bd))))      
+
 
         eval_time = time.time()-eval_time
 

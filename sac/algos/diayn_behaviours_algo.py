@@ -131,6 +131,8 @@ class DIAYN_BD(DIAYN):
         self.eval_freq = eval_freq
         self.env_id = env_id
         logger.set_snapshot_dir(self.dirname)
+        logger.log("EXPERIMENT NAME: {} (evals: {})".format(self.dirname,
+                                                            self.eval_freq))
 
         # Initialise behaviour descriptor metric
         env_info = env._wrapped_env.env.env_info

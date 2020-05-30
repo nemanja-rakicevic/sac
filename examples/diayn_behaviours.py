@@ -131,6 +131,7 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--num_skills', type=int, default=None)
     parser.add_argument('--eval_freq', type=int, default=None)
+    parser.add_argument('--xname', default=None)
 
     args = parser.parse_args()
 
@@ -159,10 +160,11 @@ def get_variants(args):
     return vg
 
 def get_logdir(args, variant):
+    xname = '' if args.xname is None else '---'+args.xname
     if args.log_dir is None:
         log_dir = "experiment_data/" \
-                  "ENV_{}_nn_policy__CFG__DIAYN_nskills_{}".format(
-                                    variant['prefix'], variant['num_skills'])
+                  "ENV_{}_nn_policy__CFG__DIAYN_nskills_{}{}".format(
+                            variant['prefix'], variant['num_skills'], xname)
     else:
         log_dir = args.log_dir
     tag = "S{}---{}".format(variant['seed'], variant['time'])

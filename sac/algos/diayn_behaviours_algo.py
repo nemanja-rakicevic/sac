@@ -6,7 +6,7 @@ from rllab.misc.overrides import overrides
 from sac.algos.sac import SAC
 from sac.algos.diayn import DIAYN
 from sac.misc import tf_utils, utils
-from sac.misc.sampler_behaviours import rollouts
+from sac.misc.sampler import rollouts
 from sac.policies.hierarchical_policy import FixedOptionPolicy
 
 import behaviour_representations.utils.behaviour_metrics as bmet
@@ -27,6 +27,7 @@ from operator import itemgetter
 from multiprocessing import Pool
 
 
+import datetime
 import pdb
 
 EPS = 1E-6
@@ -129,7 +130,7 @@ class DIAYN_BD(DIAYN):
         self.dirname = log_dir
         self.eval_freq = eval_freq
         self.env_id = env_id
-        logger.set_snapshot_dir('snapshots')
+        logger.set_snapshot_dir(self.dirname)
 
         # Initialise behaviour descriptor metric
         env_info = env._wrapped_env.env.env_info
@@ -289,10 +290,6 @@ class DIAYN_BD(DIAYN):
 
         with self._sess.as_default():
             env._wrapped_env.env.initialize(seed_task=SEED_TASK)
-
-
-            pdb.set_trace()
-
             observation = env.reset()
             policy.reset()
             log_p_z_episode = []  # Store log_p_z for this episode
@@ -348,6 +345,11 @@ class DIAYN_BD(DIAYN):
 
                     if terminal or path_length >= self._max_path_length:
                         path_length_list.append(path_length)
+                       
+                        # print("\n===RESET", epoch, n_episodes, "===", self._epoch_length, path_length, "===", 
+                        #     # env._wrapped_env.env.nstep_internal, 
+                        #     datetime.datetime.now())
+                       
                         env._wrapped_env.env.initialize(seed_task=SEED_TASK)
                         observation = env.reset()
                         policy.reset()
@@ -364,11 +366,16 @@ class DIAYN_BD(DIAYN):
                             logger.log("Epoch: {:4} | Episodes: {}".format(
                                         epoch, n_episodes), with_prefix=False)
 
-                        if not n_episodes % self.eval_freq:
+                        if not n_episodes % self.eval_freq or \
+                               n_episodes >= EPISODE_LIMIT or \
+                               epoch >= self._n_epochs:
                             # is_final = epoch >= self._n_epochs \
                             #            or n_episodes >= EPISODE_LIMIT
                             self.sample_skills_to_bd(n_epoch=epoch, 
                                                      n_episodes=n_episodes)
+                            # Make snapshot
+                            params = self.get_snapshot(epoch)
+                            logger.save_itr_params(epoch, params)
 
                             gt.stamp('behaviours')
 

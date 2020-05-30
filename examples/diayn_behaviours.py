@@ -93,7 +93,7 @@ ENV_PARAMS = {
     'bd-quadruped-walker': {
         'prefix': 'quadruped_walker',
         'env_name': 'QuadrupedWalkerEnv-v0',
-        'max_path_length': 1000,
+        'max_path_length': 300,
         'n_epochs': 500000,
         'scale_entropy': 0.1,
         'num_skills': 32400,
@@ -104,7 +104,7 @@ ENV_PARAMS = {
     'bd-quadruped-kicker': {
         'prefix': 'quadruped_kicker',
         'env_name': 'QuadrupedKickerEnv-v0',
-        'max_path_length': 1000,
+        'max_path_length': 5000,
         'n_epochs': 500000,
         'scale_entropy': 0.1,
         'num_skills': 15300,

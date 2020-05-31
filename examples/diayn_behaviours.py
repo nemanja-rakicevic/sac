@@ -84,7 +84,7 @@ ENV_PARAMS = {
         'max_path_length': 1000,
         'n_epochs': 500000,
         'scale_entropy': 0.1,
-        'num_skills': 1000,
+        'num_skills': 2000,
         'metric':
             {"type": "gait_grid", 
              "dim": 10}

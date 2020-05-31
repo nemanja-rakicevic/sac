@@ -91,7 +91,8 @@ LOWER_FD = fixtureDef(
 BALL_FD = fixtureDef(
                 shape=circleShape(pos=(0,0), radius=BALLR),
                 density=0.5,
-                friction=0.9,
+                friction=0.1,
+                # friction=0.9, # OLD
                 categoryBits=BALL_CATEGORY,
                 maskBits=BALL_MASK,  # collide only with ground
                 restitution=0.7) # 0.99 bouncy
@@ -405,7 +406,7 @@ class BipedalKickerEnv(BipedalWalker):
                 (self.terrain_x[i+1], self.terrain_y[i+1])
                 ]
             self.fd_edge.shape.vertices=poly
-            # self.fd_edge.friction=100
+            self.fd_edge.friction=0.9  # OLD was zero
             t = self.world.CreateStaticBody(
                 fixtures = self.fd_edge)
             color = (0.3, 1.0 if i%2==0 else 0.8, 0.3)

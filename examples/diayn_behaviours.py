@@ -81,7 +81,7 @@ ENV_PARAMS = {
     'bd-bipedal-kicker': {
         'prefix': 'bipedal_kicker',
         'env_name': 'BipedalKickerEnv-v0',
-        'max_path_length': 1000,
+        'max_path_length': 2000,
         'n_epochs': 500000,
         'scale_entropy': 0.1,
         'num_skills': 2000,

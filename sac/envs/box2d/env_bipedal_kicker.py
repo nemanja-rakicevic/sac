@@ -90,7 +90,7 @@ LOWER_FD = fixtureDef(
 
 BALL_FD = fixtureDef(
                 shape=circleShape(pos=(0,0), radius=BALLR),
-                density=0.5,
+                density=2.0, # 0.5
                 friction=0.1,
                 # friction=0.9, # OLD
                 categoryBits=BALL_CATEGORY,

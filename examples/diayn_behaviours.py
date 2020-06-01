@@ -70,7 +70,7 @@ ENV_PARAMS = {
     'bd-bipedal-walker': {
         'prefix': 'bipedal_walker',
         'env_name': 'BipedalWalkerEnv-v0',
-        'max_path_length': 1000,
+        'max_path_length': 500,
         'n_epochs': 500000,
         'scale_entropy': 0.1,
         'num_skills': 12500,

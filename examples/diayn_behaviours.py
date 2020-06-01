@@ -59,7 +59,7 @@ ENV_PARAMS = {
         'prefix': 'striker',
         'env_name': 'StrikerEnv-v0',
         'max_path_length': 1000,
-        'n_epochs': 500000,
+        'n_epochs': 100000,
         'scale_entropy': 0.1,
         'num_skills': 15300,
         'metric':
@@ -71,7 +71,7 @@ ENV_PARAMS = {
         'prefix': 'bipedal_walker',
         'env_name': 'BipedalWalkerEnv-v0',
         'max_path_length': 500,
-        'n_epochs': 500000,
+        'n_epochs': 100000,
         'scale_entropy': 0.1,
         'num_skills': 12500,
         'metric':
@@ -82,7 +82,7 @@ ENV_PARAMS = {
         'prefix': 'bipedal_kicker',
         'env_name': 'BipedalKickerEnv-v0',
         'max_path_length': 2000,
-        'n_epochs': 500000,
+        'n_epochs': 100000,
         'scale_entropy': 0.1,
         'num_skills': 2000,
         'metric':
@@ -93,8 +93,8 @@ ENV_PARAMS = {
     'bd-quadruped-walker': {
         'prefix': 'quadruped_walker',
         'env_name': 'QuadrupedWalkerEnv-v0',
-        'max_path_length': 300,
-        'n_epochs': 500000,
+        'max_path_length': 200,
+        'n_epochs': 100000,
         'scale_entropy': 0.1,
         'num_skills': 32400,
         'metric':
@@ -105,7 +105,7 @@ ENV_PARAMS = {
         'prefix': 'quadruped_kicker',
         'env_name': 'QuadrupedKickerEnv-v0',
         'max_path_length': 5000,
-        'n_epochs': 500000,
+        'n_epochs': 100000,
         'scale_entropy': 0.1,
         'num_skills': 15300,
         'metric':

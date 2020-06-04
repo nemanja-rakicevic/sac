@@ -164,7 +164,7 @@ def get_logdir(args, variant):
     xname = '' if args.xname is None else '---'+args.xname
     xdir = '' if args.xdir is None else '---'+args.xdir
     if args.log_dir is None:
-        log_dir = "experiment_data/env__{}{}" \
+        log_dir = "experiment_data/env__{}{}/" \
                   "ENV_{}_nn_policy__CFG__DIAYN_nskills_{}{}".format(
                         variant['prefix'], xdir,
                         variant['prefix'], variant['num_skills'], xname)

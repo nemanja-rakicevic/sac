@@ -158,19 +158,6 @@ class BipedalWalkerEnv(BipedalWalker):
             l = self.lidar[i] if i < len(self.lidar) else self.lidar[len(self.lidar)-i-1]
             self.viewer.draw_polyline( [l.p1, l.p2], color=(1,0,0), linewidth=1 )
 
-        for obj in self.drawlist:
-            for f in obj.fixtures:
-                trans = f.body.transform
-                if type(f.shape) is circleShape:
-                    t = rendering.Transform(translation=trans*f.shape.pos)
-                    self.viewer.draw_circle(f.shape.radius, 30, color=obj.color1).add_attr(t)
-                    self.viewer.draw_circle(f.shape.radius, 30, color=obj.color2, filled=False, linewidth=2).add_attr(t)
-                else:
-                    path = [trans*v for v in f.shape.vertices]
-                    self.viewer.draw_polygon(path, color=obj.color1)
-                    path.append(path[0])
-                    self.viewer.draw_polyline(path, color=obj.color2, linewidth=2)
-
         # Left edge flag
         flagy1 = TERRAIN_HEIGHT
         flagy2 = flagy1 + 50/SCALE
@@ -197,6 +184,20 @@ class BipedalWalkerEnv(BipedalWalker):
         f = [(x, flagy2), (x, flagy2-10/SCALE), (x+25/SCALE, flagy2-5/SCALE)]
         self.viewer.draw_polygon(f, color=(1.,1.,1.) )
         self.viewer.draw_polyline(f + [f[0]], color=(0,0,0), linewidth=2 )
+
+        # Rest of the env
+        for obj in self.drawlist:
+            for f in obj.fixtures:
+                trans = f.body.transform
+                if type(f.shape) is circleShape:
+                    t = rendering.Transform(translation=trans*f.shape.pos)
+                    self.viewer.draw_circle(f.shape.radius, 30, color=obj.color1).add_attr(t)
+                    self.viewer.draw_circle(f.shape.radius, 30, color=obj.color2, filled=False, linewidth=2).add_attr(t)
+                else:
+                    path = [trans*v for v in f.shape.vertices]
+                    self.viewer.draw_polygon(path, color=obj.color1)
+                    path.append(path[0])
+                    self.viewer.draw_polyline(path, color=obj.color2, linewidth=2)
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 

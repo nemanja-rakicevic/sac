@@ -22,6 +22,7 @@ import pdb
 
 REWARD_THRSH = 20
 _VEL_THRSH = .05
+_BALL_VELX_THRSH = .25
 _EPS = 1e-05
 
 
@@ -87,10 +88,9 @@ LOWER_FD = fixtureDef(
                     categoryBits=BIPED_CATEGORY,
                     maskBits=BIPED_MASK)
 
-
 BALL_FD = fixtureDef(
                 shape=circleShape(pos=(0,0), radius=BALLR),
-                density=2.0, # 0.5
+                density=0.5, # 0.5
                 friction=0.1,
                 # friction=0.9, # OLD
                 categoryBits=BALL_CATEGORY,
@@ -163,14 +163,13 @@ class BipedalKickerEnv(BipedalWalker):
     def _get_done(self, action, obs, done):
         # episode is done when the ball stops, or complete miss
         ball_pos_x = np.linalg.norm(obs[24]) 
-        ball_vel = np.linalg.norm(obs[-2:])
+        ball_vel_x = np.linalg.norm(obs[-2])
         biped_vel = np.linalg.norm(np.array(self.unwrapped.hull.linearVelocity))
         # Termination conditions
-        done = done or \
-               ball_vel<=_VEL_THRSH and abs(ball_pos_x-BALL_START)>_EPS or \
-               ball_vel<=_VEL_THRSH and biped_vel<=_VEL_THRSH 
+        done = ball_vel_x<=_BALL_VELX_THRSH and abs(ball_pos_x-BALL_START)>_EPS or \
+               ball_vel_x<=_BALL_VELX_THRSH and biped_vel<=_VEL_THRSH 
                # and np.isclose(ball_pos_x, 0., atol=_EPS)   
-        # print("\n===", self.nstep_internal, ball_vel, biped_vel, action)
+        # print("\n===", self.nstep_internal, obs[-2], obs[-1], biped_vel, action)
         # print("===", ball_vel<=_VEL_THRSH , abs(ball_pos_x-BALL_START)>_EPS)
         # print("===", biped_vel<=_VEL_THRSH , ball_vel<=_VEL_THRSH, 
         #     np.isclose(abs(ball_pos_x-BALL_START), 0., atol=_EPS))
@@ -190,11 +189,13 @@ class BipedalKickerEnv(BipedalWalker):
         return obs, info_dict['position'], info_dict['position_aux']
 
 
-    def finalize(self, state, rew_list, **kwargs):
+    def finalize(self, state, traj_aux, **kwargs):
         info_dict = self._get_info_dict(state)
         reward_len = np.linalg.norm(info_dict['position'][0]-self.init_body)
         outcome = -1  # 0 if reward_len >= REWARD_THRSH else -1
-        return np.array([outcome, np.sum(rew_list)])
+        trial_fitness = -len(np.unique(traj_aux.astype(np.float16), axis=0))
+        # return np.array([outcome, np.sum(rew_list)])
+        return np.array([outcome, trial_fitness])
 
 
     def step(self, action):
@@ -243,19 +244,6 @@ class BipedalKickerEnv(BipedalWalker):
             l = self.lidar[i] if i < len(self.lidar) else self.lidar[len(self.lidar)-i-1]
             self.viewer.draw_polyline( [l.p1, l.p2], color=(1,0,0), linewidth=1 )
 
-        for obj in self.drawlist:
-            for f in obj.fixtures:
-                trans = f.body.transform
-                if type(f.shape) is circleShape:
-                    t = rendering.Transform(translation=trans*f.shape.pos)
-                    self.viewer.draw_circle(f.shape.radius, 30, color=obj.color1).add_attr(t)
-                    self.viewer.draw_circle(f.shape.radius, 30, color=obj.color2, filled=False, linewidth=2).add_attr(t)
-                else:
-                    path = [trans*v for v in f.shape.vertices]
-                    self.viewer.draw_polygon(path, color=obj.color1)
-                    path.append(path[0])
-                    self.viewer.draw_polyline(path, color=obj.color2, linewidth=2)
-
         # Left edge flag
         flagy1 = TERRAIN_HEIGHT
         flagy2 = flagy1 + 50/SCALE
@@ -283,6 +271,20 @@ class BipedalKickerEnv(BipedalWalker):
         self.viewer.draw_polygon(f, color=(1.,1.,1.) )
         self.viewer.draw_polyline(f + [f[0]], color=(0,0,0), linewidth=2 )
 
+        # Rest of the env
+        for obj in self.drawlist:
+            for f in obj.fixtures:
+                trans = f.body.transform
+                if type(f.shape) is circleShape:
+                    t = rendering.Transform(translation=trans*f.shape.pos)
+                    self.viewer.draw_circle(f.shape.radius, 30, color=obj.color1).add_attr(t)
+                    self.viewer.draw_circle(f.shape.radius, 30, color=obj.color2, filled=False, linewidth=2).add_attr(t)
+                else:
+                    path = [trans*v for v in f.shape.vertices]
+                    self.viewer.draw_polygon(path, color=obj.color1)
+                    path.append(path[0])
+                    self.viewer.draw_polyline(path, color=obj.color2, linewidth=2)
+                    
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
 
@@ -406,7 +408,8 @@ class BipedalKickerEnv(BipedalWalker):
                 (self.terrain_x[i+1], self.terrain_y[i+1])
                 ]
             self.fd_edge.shape.vertices=poly
-            self.fd_edge.friction=0.9  # OLD was zero
+            # Added terrain friction
+            self.fd_edge.friction = 0.9  # OLD was zero
             t = self.world.CreateStaticBody(
                 fixtures = self.fd_edge)
             color = (0.3, 1.0 if i%2==0 else 0.8, 0.3)

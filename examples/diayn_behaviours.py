@@ -86,14 +86,14 @@ ENV_PARAMS = {
         'scale_entropy': 0.1,
         'num_skills': 2000,
         'metric':
-            {"type": "gait_grid", 
+            {"type": "gait_grid_small", 
              "dim": 10}
     },
 
     'bd-quadruped-walker': {
         'prefix': 'quadruped_walker',
         'env_name': 'QuadrupedWalkerEnv-v0',
-        'max_path_length': 200,
+        'max_path_length': 300,
         'n_epochs': 100000,
         'scale_entropy': 0.1,
         'num_skills': 32400,

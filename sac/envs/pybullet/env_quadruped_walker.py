@@ -3,6 +3,7 @@ import numpy as np
 from gym import utils
 import os
 
+import pybullet
 from pybullet_envs.gym_locomotion_envs import  WalkerBaseBulletEnv, Ant
 
 
@@ -11,24 +12,37 @@ _VEL_THRSH = .0005
 
 
 
-### TODO : Make camera from above!
+class TopCamera:
+    """ Overwriting the visualisation angle to make it birds-eye view """
+    def __init__(self, env):
+        self.env = env
+        pass
 
-# self.camera = Camera(self.unwrapped)
+    def move_and_look_at(self, i, j, k, x, y, z):
+        # lookat = [x, y, z]
+        lookat = self.env.camera_info['lookat']
+        distance = self.env.camera_info['camera']['distance']-4.5
+        yaw = self.env.camera_info['camera']['yaw']
+        pitch = self.env.camera_info['camera']['pitch']
+        # distance, yaw, pitch = 3, -90., -45.
+        self.env._p.resetDebugVisualizerCamera(distance, yaw, pitch, lookat)
 
-# class Camera:
 
-#   def __init__(self, env):
-#     self.env = env
-#     pass
 
-#   def move_and_look_at(self, i, j, k, x, y, z):
-#     lookat = [x, y, z]
-#     # camInfo = self.env._p.getDebugVisualizerCamera()
-#     # distance = camInfo[10] + i
-#     # pitch = camInfo[9] + j
-#     # yaw = camInfo[8] + k
-#     distance, yaw, pitch = 5, 0, 0
-#     self.env._p.resetDebugVisualizerCamera(distance, yaw, pitch, lookat)
+class FollowCamera:
+    """ Overwriting the visualisation angle to make it birds-eye view """
+    def __init__(self, env):
+        self.env = env
+        pass
+
+    def move_and_look_at(self, i, j, k, x, y, z):
+        lookat = [x, y, z]
+        distance = 4.5
+        yaw = 0
+        pitch = -30
+        # distance, yaw, pitch = 3, -90., -45.
+        self.env._p.resetDebugVisualizerCamera(distance, yaw, pitch, lookat)
+
 
 
 
@@ -54,6 +68,12 @@ class QuadrupedWalkerEnv(WalkerBaseBulletEnv):
             target_info=[{'xy': (20, 0)}],
             striker_ranges=None,
             ball_ranges=None)
+
+        self.camera_info = {'camera': {'distance': 12,
+                                       'yaw': -0,
+                                       'pitch': -89},
+                            'lookat': [0, 0, 0]}
+        self.camera = TopCamera(self)
 
 
     def _get_info_dict(self, obs=None):
@@ -97,3 +117,43 @@ class QuadrupedWalkerEnv(WalkerBaseBulletEnv):
         info_dict = self._get_info_dict(obs)
         done = done or np.linalg.norm(info_dict['velocity'])<=_VEL_THRSH
         return obs, rew, done, info_dict
+
+
+
+    def render(self, mode='human', close=False):
+      
+        if mode == "human":
+            self.isRender = True
+        if self.physicsClientId>=0:
+            self.camera_adjust()
+
+        if mode != "rgb_array":
+            return np.array([])
+
+        if (self.physicsClientId>=0):
+            view_matrix = self._p.computeViewMatrixFromYawPitchRoll(
+                cameraTargetPosition=self.camera_info['lookat'],
+                roll=0,
+                upAxisIndex=2,
+                **self.camera_info['camera'])
+            proj_matrix = self._p.computeProjectionMatrixFOV(
+                fov=60,
+                aspect=float(self._render_width) / self._render_height,
+                nearVal=0.1,
+                farVal=100.0)
+            (_, _, px, _, _) = self._p.getCameraImage(
+                width=self._render_width,
+                height=self._render_height,
+                viewMatrix=view_matrix,
+                projectionMatrix=proj_matrix,
+                renderer=pybullet.ER_BULLET_HARDWARE_OPENGL)
+            self._p.configureDebugVisualizer(
+                self._p.COV_ENABLE_SINGLE_STEP_RENDERING, 1)
+        else:
+            px = np.array([[[255,255,255,255]]*self._render_width]\
+                            *self._render_height, dtype=np.uint8)
+        rgb_array = np.array(px, dtype=np.uint8)
+        rgb_array = np.reshape(np.array(px), 
+                               (self._render_height, self._render_width, -1))
+        rgb_array = rgb_array[:, :, :3]
+        return rgb_array

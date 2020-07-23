@@ -1,10 +1,13 @@
 
+import pdb
+
 import numpy as np
 from gym import utils
 import os
 
 import pybullet
 from pybullet_envs.gym_locomotion_envs import  WalkerBaseBulletEnv, Ant
+from pybullet_envs.robot_locomotors import  WalkerBase
 
 
 REWARD_THRSH = 20
@@ -69,17 +72,15 @@ class QuadrupedWalkerEnv(WalkerBaseBulletEnv):
             striker_ranges=None,
             ball_ranges=None)
 
-        self.camera_info = {'camera': {'distance': 12,
-                                       'yaw': -0,
-                                       'pitch': -89},
+        self.camera_info = {'camera': {'distance': 12, 'yaw': -0, 'pitch': -89},
                             'lookat': [0, 0, 0]}
         self.camera = TopCamera(self)
 
 
-    def _get_info_dict(self, obs=None):
+    def _get_info_dict(self, state=None):
         hull_position = self.unwrapped.robot.body_xyz
         hull_angle = self.unwrapped.robot.body_rpy[1]
-        contact_info = obs[np.array([24,25,26,27])] if obs is not None else []
+        contact_info = state[np.array([24,25,26,27])] if state is not None else []
         velocity_info = self.unwrapped.robot_body.speed()
         rel_angle = \
             self.unwrapped.jdict['hip_1'].current_relative_position()[0] \
@@ -99,10 +100,10 @@ class QuadrupedWalkerEnv(WalkerBaseBulletEnv):
         self.seed(seed_task)
         self.action_space.seed(seed_task)
         # standard reset
-        obs = self.reset()
-        info_dict = self._get_info_dict(obs)
+        state = self.reset()
+        info_dict = self._get_info_dict(state)
         self.init_body = info_dict['position'][0:2]
-        return obs, info_dict['position'], info_dict['position_aux']
+        return state, info_dict['position'], info_dict['position_aux']
 
 
     def finalize(self, rew_list, **kwargs):
@@ -113,11 +114,10 @@ class QuadrupedWalkerEnv(WalkerBaseBulletEnv):
 
 
     def step(self, action):
-        obs, rew, done, _ = super().step(action)
-        info_dict = self._get_info_dict(obs)
+        state, rew, done, _ = super().step(action)
+        info_dict = self._get_info_dict(state)
         done = done or np.linalg.norm(info_dict['velocity'])<=_VEL_THRSH
-        return obs, rew, done, info_dict
-
+        return state, rew, done, info_dict
 
 
     def render(self, mode='human', close=False):
@@ -157,3 +157,68 @@ class QuadrupedWalkerEnv(WalkerBaseBulletEnv):
                                (self._render_height, self._render_width, -1))
         rgb_array = rgb_array[:, :, :3]
         return rgb_array
+
+
+
+class AugmentedQuadruped(Ant):
+
+    def __init__(self, scale=1):
+        WalkerBase.__init__(self, "ant.xml", "torso", 
+                            action_dim=8, obs_dim=30, power=2.5)
+        self.walk_target_x = 0 
+        self.walk_target_y = 0
+        self.SCALE = scale
+
+    def calc_state(self):
+        standard_state = super().calc_state()
+        augmented_state = np.concatenate(
+            [standard_state, self.SCALE * self.robot_body.pose().xyz()[:2]])
+        return augmented_state
+
+
+
+class QuadrupedWalkerAugmentedEnv(QuadrupedWalkerEnv):
+
+    def __init__(self, render=False):
+        self.init_body = np.zeros(2)
+        self.robot = AugmentedQuadruped(scale=1)
+        WalkerBaseBulletEnv.__init__(self, self.robot, render)
+
+        self.param_ranges = np.vstack([self.action_space.low,
+                                       self.action_space.high]).T
+        self.env_info = dict(
+            num_targets=1,
+            num_statetacles=0,
+            wall_geoms=None,
+            ball_geom=None,
+            target_info=[{'xy': (20, 0)}],
+            striker_ranges=None,
+            ball_ranges=None)
+
+        self.camera_info = {'camera': {'distance': 12, 'yaw': -0, 'pitch': -89},
+                            'lookat': [0, 0, 0]}
+        self.camera = TopCamera(self)
+
+
+
+class QuadrupedWalkerAugmentedMixScaleEnv(QuadrupedWalkerEnv):
+
+    def __init__(self, render=False):
+        self.init_body = np.zeros(2)
+        self.robot = AugmentedQuadruped(scale=100)
+        WalkerBaseBulletEnv.__init__(self, self.robot, render)
+
+        self.param_ranges = np.vstack([self.action_space.low,
+                                       self.action_space.high]).T
+        self.env_info = dict(
+            num_targets=1,
+            num_statetacles=0,
+            wall_geoms=None,
+            ball_geom=None,
+            target_info=[{'xy': (20, 0)}],
+            striker_ranges=None,
+            ball_ranges=None)
+
+        self.camera_info = {'camera': {'distance': 12, 'yaw': -0, 'pitch': -89},
+                            'lookat': [0, 0, 0]}
+        self.camera = TopCamera(self)

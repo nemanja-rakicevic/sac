@@ -112,6 +112,48 @@ class BoundedStadiumScene(Scene):
 
 
 
+class NormalScene(Scene):
+    """ 
+        Custom-made playing field with walls and no reflection.
+    """
+    zero_at_running_strip_start_line = True  # if False, center of coordinates (0,0,0) will be at the middle of the stadium
+    stadium_halflen = 105 * 0.25  # FOOBALL_FIELD_HALFLEN
+    stadium_halfwidth = 50 * 0.25  # FOOBALL_FIELD_HALFWID
+    stadiumLoaded = 0
+    multiplayer = False
+
+    def __init__(self, ball_pos, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ball_pos = ball_pos
+
+    def episode_restart(self, bullet_client):
+        self._p = bullet_client
+        Scene.episode_restart(self, bullet_client)  # contains cpp_world.clean_everything()
+
+        if (self.stadiumLoaded == 0):
+            self.stadiumLoaded = 1
+            # Add stadium floor
+            filename = os.path.join(os.path.dirname(__file__), 
+                                    "assets/plane_normal.sdf")
+            self.ground_plane_mjcf = self._p.loadSDF(filename)
+            self._p.changeDynamics(0, -1, lateralFriction=.8, restitution=0.5, 
+                                   rollingFriction=0.005)
+            # self._p.changeVisualShape(i, -1, rgbaColor=[1, 1, 1, 1])
+            # self._p.configureDebugVisualizer(pybullet.COV_ENABLE_PLANAR_REFLECTION,i)
+            # Add ball
+            filename = os.path.join(os.path.dirname(__file__), 
+                                    "assets/ball_blue.urdf")
+            ball_body = self._p.loadURDF(filename, self.ball_pos)
+            self._p.changeDynamics(ball_body, -1, restitution=1, mass=5.)#,rollingFriction=0.001)
+            # Add Obstacle to scene
+            # self.obstacle = get_cube(self._p, 3.25, 0, 0.25)
+            self.ground_plane_mjcf += (ball_body, )
+            # # Update bouncyness
+            # for i in range(0, len(self.ground_plane_mjcf)):
+            #     print("===", self._p.getDynamicsInfo(i, -1))
+
+
+
 class Quadruped(Ant):
     """
         same as ant added ball repositioning
@@ -119,7 +161,7 @@ class Quadruped(Ant):
 
     def __init__(self):
         WalkerBase.__init__(self, "ant.xml", "torso", 
-                            action_dim=8, obs_dim=32, power=2.5)
+                            action_dim=8, obs_dim=34, power=2.5)
         self.walk_target_x = 0 
         self.walk_target_y = 0
         self.init_ball_pos = [0, 0, .25]
@@ -174,7 +216,7 @@ class Quadruped(Ant):
         standard_state = np.clip(np.concatenate([more] + \
                                                 [j] + \
                                                 [self.feet_contact]), -5, +5)
-
+        # Add Ball position and velocity
         if 'ball_blue' in self.parts.keys():
             ball_body = self.parts['ball_blue']
             augmented_state = np.concatenate([standard_state, 
@@ -184,11 +226,15 @@ class Quadruped(Ant):
             augmented_state = np.concatenate([standard_state, 
                                               self.init_ball_pos[:2], 
                                               [0, 0]])
+        # Add Robot hull position
+        augmented_state = np.concatenate([augmented_state, 
+                                          self.robot_body.pose().xyz()[:2]])
+
         return augmented_state
 
 
 
-class QuadrupedKickerEnv(WalkerBaseBulletEnv):
+class QuadrupedKickerBaseEnv(WalkerBaseBulletEnv):
     """
     Quadruped Ant agent
     foot_list = ['front_left_foot', 'front_right_foot', 'left_back_foot', 'right_back_foot']
@@ -222,24 +268,13 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
         #                                'yaw': -0,
         #                                'pitch': -69},
         #                     'lookat': [0, 0, 0]}
-        self.camera_info = {'camera': {'distance': 12,
-                                       'yaw': -0,
-                                       'pitch': -89},
+        self.camera_info = {'camera': {'distance': 12, 'yaw': -0, 'pitch': -89},
                             'lookat': [0, 3, 0]}
         self.camera = TopCamera(self)
         self._render_width = 240
         self._render_height = 240
         self.init = False
 
-
-    def create_single_player_scene(self, bullet_client):
-        self.stadium_scene = BoundedStadiumScene(
-                                bullet_client=bullet_client,
-                                ball_pos=self.init_ball_pos,
-                                gravity=9.8,
-                                timestep=TIME_STEP_FIXED / FRAME_SKIP,
-                                frame_skip=FRAME_SKIP)
-        return self.stadium_scene
 
 
     def reset(self):
@@ -296,13 +331,11 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
 
 
     def _get_info_dict(self, state=None, action=np.zeros(8)):
+        ball_position = self.robot.parts['ball_blue'].get_position()[:2]
         hull_position = self.robot.body_xyz
         hull_angles = self.robot.body_rpy
-
-
-
         hull_pose = np.append(hull_position, hull_angles)
-        info_dict = dict(position=state[28:30],
+        info_dict = dict(position=ball_position,
                          position_aux=np.concatenate([hull_position, 
                                                       hull_angles,
                                                       action]),
@@ -311,16 +344,15 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
                          # final_dist=np.linalg.norm(vec), 
                          # final_ctrl=np.linalg.norm(action),
                          contact_objects=self.contact_objects)
-
-
         return info_dict
-
 
 
     def _get_done(self, action, state):
         # episode is done when the ball stops, or complete miss
-        ball_vel = np.linalg.norm(state[30:32])
-        ball_pos = np.linalg.norm(state[28:30]) 
+        ball_position = self.robot.parts['ball_blue'].get_position()[:2]
+        ball_velocity = self.robot.parts['ball_blue'].speed()[:2]
+        ball_pos = np.linalg.norm(ball_position) 
+        ball_vel = np.linalg.norm(ball_velocity)
         strk_vel = np.linalg.norm(self.unwrapped.robot_body.speed()) \
                    + np.linalg.norm(action) 
         # Termination conditions
@@ -341,7 +373,8 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
         #                   if 'target' in n]
         # target_dist = [np.linalg.norm(tc - self.get_body_com("ball")[:2]) \
         #                   for tc in target_coms]
-        target_dist = -np.linalg.norm(state[-2:])
+        hull_pos = self.robot_body.pose().xyz()[:2]
+        target_dist = -np.linalg.norm(hull_pos)
         return target_dist #+ [tuple(state[3:5])]
 
 
@@ -370,23 +403,30 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
 
 
     def _check_contacts(self, state):
-        ball_x, ball_y = state[28:30]
-        ball_vx, ball_vy = state[-2:]
+        """
+            Hack to get proper contacts and ball bounces
+        """
+        ball_x, ball_y = self.robot.parts['ball_blue'].get_position()[:2]
+        ball_vx, ball_vy = self.robot.parts['ball_blue'].speed()[:2]
         # check wall vicinity
         wall_W, wall_E = np.isclose(ball_x, self.ball_ranges[0,:], atol=0.3)
         wall_S, wall_N = np.isclose(ball_y, self.ball_ranges[1,:], atol=0.3)
         # check change of direction
         dv_x = np.sign(ball_vx) != np.sign(self.prev_ball_vx)
         dv_y = np.sign(ball_vy) != np.sign(self.prev_ball_vy)
+        # evaluate contacts
+        contact = np.array([wall_S*dv_y, wall_E*dv_x, wall_N*dv_y, wall_W*dv_x])
+        # make a proper bounce, keep 90% of velocity
+        if contact.any() and self.nstep_internal>1:
+            _, _, vz = self.parts['ball_blue'].speed()
+            if dv_x: ball_vx = -0.9*self.prev_ball_vx
+            if dv_y: ball_vy = -0.9*self.prev_ball_vy
+            self.parts['ball_blue'].reset_velocity(linearVelocity=[ball_vx, 
+                                                                   ball_vy, vz]) 
+        # print("\n====", self.nstep_internal, contact, ball_vx, ball_vy)
         # update prev ball_xy
         self.prev_ball_vx = ball_vx
         self.prev_ball_vy = ball_vy
-        # evaluate contacts
-        # wall_bool = np.array([wall_S, wall_E, wall_N, wall_W])
-        # dv_bool = np.tile([dv_y, dv_x], 2)
-        # contact = wall_bool * dv_bool
-        # print("\n\n======{}\n{}\n{}\n{}".format((ball_vx, ball_vy), wall_bool, dv_bool, contact))
-        contact = np.array([wall_S*dv_y, wall_E*dv_x, wall_N*dv_y, wall_W*dv_x])
         # return wall indices
         return np.where(contact)[0]+1
 
@@ -413,3 +453,195 @@ class QuadrupedKickerEnv(WalkerBaseBulletEnv):
         if len(alt_contact):
             self.contact_objects.append(alt_contact[0])
         return state, rew, done, info_dict
+
+
+
+
+class AugmentedQuadruped(Ant):
+    """
+        same as ant added ball repositioning
+    """
+
+    def __init__(self, scale):
+        WalkerBase.__init__(self, "ant.xml", "torso", 
+                            action_dim=8, obs_dim=34, power=2.5)
+        self.walk_target_x = 0 
+        self.walk_target_y = 0
+        self.init_ball_pos = [0, 0, .25]
+        self.init_robot_pos = [0, -1.5, .5]
+        self.SCALE = scale
+
+
+    def robot_specific_reset(self, bullet_client):
+        WalkerBase.robot_specific_reset(self, bullet_client)
+        # Robot to initial position
+        self.robot_body.reset_position(self.init_robot_pos)
+
+
+    def calc_state(self):
+        # standard_state = super().calc_state()
+
+        j = np.array([j.current_relative_position() \
+                for j in self.ordered_joints], dtype=np.float32).flatten()
+        self.joint_speeds = j[1::2]
+        self.joints_at_limit = np.count_nonzero(np.abs(j[0::2]) > 0.99)
+        body_pose = self.robot_body.pose()
+        self.body_real_xyz = body_pose.xyz()
+        self.body_xyz = body_pose.xyz()
+        self.body_rpy = body_pose.rpy()
+        z = self.body_xyz[2]
+        if self.initial_z == None:
+          self.initial_z = z
+        r, p, yaw = self.body_rpy
+        self.walk_target_theta = np.arctan2(self.walk_target_y-self.body_xyz[1],
+                                            self.walk_target_x-self.body_xyz[0])
+        self.walk_target_dist = np.linalg.norm(
+            [self.walk_target_y - self.body_xyz[1], 
+             self.walk_target_x - self.body_xyz[0]])
+        angle_to_target = self.walk_target_theta - yaw
+        # rotate speed back to body point of view
+        rot_speed = np.array([[np.cos(-yaw), -np.sin(-yaw), 0], 
+                              [np.sin(-yaw), np.cos(-yaw), 0], [0, 0, 1]])
+        vx, vy, vz = np.dot(rot_speed, self.robot_body.speed())  
+
+        more = np.array(
+            [
+                z - self.initial_z,
+                np.sin(angle_to_target),
+                np.cos(angle_to_target),
+                0.3 * vx,
+                0.3 * vy,
+                0.3 * vz,  # 0.3 is just scaling typical speed into -1..+1, no physical sense here
+                r,
+                p
+            ],
+            dtype=np.float32)
+
+        standard_state = np.clip(np.concatenate([more] + \
+                                                [j] + \
+                                                [self.feet_contact]), -5, +5)
+        # Add Ball position and velocity
+        if 'ball_blue' in self.parts.keys():
+            ball_body = self.parts['ball_blue']
+            augmented_state = np.concatenate([
+                                standard_state, 
+                                self.SCALE * ball_body.get_position()[:2], 
+                                ball_body.speed()[:2]])
+        else:
+            augmented_state = np.concatenate([
+                                standard_state, 
+                                self.SCALE * np.array(self.init_ball_pos[:2]), 
+                                [0, 0]])
+        # Add Robot hull position
+        augmented_state = np.concatenate([
+                                augmented_state, 
+                                self.SCALE * self.robot_body.pose().xyz()[:2]])
+
+        return augmented_state
+
+
+
+
+
+class QuadrupedKickerEnv(QuadrupedKickerBaseEnv):
+
+    def create_single_player_scene(self, bullet_client):
+        self.stadium_scene = NormalScene(
+                                bullet_client=bullet_client,
+                                ball_pos=self.init_ball_pos,
+                                gravity=9.8,
+                                timestep=TIME_STEP_FIXED / FRAME_SKIP,
+                                frame_skip=FRAME_SKIP)
+        return self.stadium_scene
+
+
+
+class QuadrupedAugmentedKickerEnv(QuadrupedKickerEnv):
+
+    def __init__(self, render=False):
+        self.init = True
+        self.init_body = np.zeros(2)
+        # self.init_ball_pos = [0.5, -0.5, .25]
+        self.init_ball_pos = [0, 0, .25]
+        self.init_robot_pos = [0, -1.5, .5]
+
+        self.robot = AugmentedQuadruped(scale=1)
+        WalkerBaseBulletEnv.__init__(self, self.robot, render)
+        self.param_ranges = np.vstack([self.action_space.low,
+                                       self.action_space.high]).T
+        _offset = 0.25/2
+        self.ball_ranges = np.array([[ -6.+_offset, 6.-_offset ],
+                                     [ -3.+_offset, 9-_offset ]])   
+        self.env_info = dict(
+            num_targets=1,
+            num_obstacles=0,
+            wall_geoms=[0, 1, 2, 3],
+            ball_geom=5,
+            target_info= [{'xy': (-0.5, 1.), 'radius': 0.25 }] ,
+            striker_ranges=self.param_ranges,
+            ball_ranges=self.ball_ranges)
+        # self.camera_info = {'camera': {'distance': 10,
+        #                                'yaw': -0,
+        #                                'pitch': -69},
+        #                     'lookat': [0, 0, 0]}
+        self.camera_info = {'camera': {'distance': 12, 'yaw': -0, 'pitch': -89},
+                            'lookat': [0, 3, 0]}
+        self.camera = TopCamera(self)
+        self._render_width = 240
+        self._render_height = 240
+        self.init = False
+
+
+
+
+class QuadrupedKickerAugmentedMixScaleEnv(QuadrupedKickerEnv):
+
+    def __init__(self, render=False):
+        self.init = True
+        self.init_body = np.zeros(2)
+        # self.init_ball_pos = [0.5, -0.5, .25]
+        self.init_ball_pos = [0, 0, .25]
+        self.init_robot_pos = [0, -1.5, .5]
+
+        self.robot = AugmentedQuadruped(scale=100)
+        WalkerBaseBulletEnv.__init__(self, self.robot, render)
+        self.param_ranges = np.vstack([self.action_space.low,
+                                       self.action_space.high]).T
+        _offset = 0.25/2
+        self.ball_ranges = np.array([[ -6.+_offset, 6.-_offset ],
+                                     [ -3.+_offset, 9-_offset ]])   
+        self.env_info = dict(
+            num_targets=1,
+            num_obstacles=0,
+            wall_geoms=[0, 1, 2, 3],
+            ball_geom=5,
+            target_info= [{'xy': (-0.5, 1.), 'radius': 0.25 }] ,
+            striker_ranges=self.param_ranges,
+            ball_ranges=self.ball_ranges)
+        # self.camera_info = {'camera': {'distance': 10,
+        #                                'yaw': -0,
+        #                                'pitch': -69},
+        #                     'lookat': [0, 0, 0]}
+        self.camera_info = {'camera': {'distance': 12, 'yaw': -0, 'pitch': -89},
+                            'lookat': [0, 3, 0]}
+        self.camera = TopCamera(self)
+        self._render_width = 240
+        self._render_height = 240
+        self.init = False
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+
+class QuadrupedKickerBoundedEnv(QuadrupedKickerBaseEnv):
+
+    def create_single_player_scene(self, bullet_client):
+        self.stadium_scene = BoundedStadiumScene(
+                                bullet_client=bullet_client,
+                                ball_pos=self.init_ball_pos,
+                                gravity=9.8,
+                                timestep=TIME_STEP_FIXED / FRAME_SKIP,
+                                frame_skip=FRAME_SKIP)
+        return self.stadium_scene

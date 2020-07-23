@@ -1,6 +1,7 @@
 
 
 import os
+import math
 import numpy as np
 
 from gym import utils
@@ -94,7 +95,7 @@ BALL_FD = fixtureDef(
                 friction=0.1,
                 # friction=0.9, # OLD
                 categoryBits=BALL_CATEGORY,
-                maskBits=BALL_MASK,  # collide only with ground
+                maskBits=BALL_MASK,
                 restitution=0.7) # 0.99 bouncy
           
 BALL_DAMPING = 1.
@@ -106,15 +107,55 @@ class ContactDetector(contactListener):
         contactListener.__init__(self)
         self.env = env
     def BeginContact(self, contact):
-        if self.env.hull==contact.fixtureA.body or self.env.hull==contact.fixtureB.body:
+        # hull-ground contact
+        if self.env.hull in [contact.fixtureA.body, contact.fixtureB.body]:
             self.env.game_over = True
+        # leg-ground contact
         for leg in [self.env.legs[1], self.env.legs[3]]:
             if leg in [contact.fixtureA.body, contact.fixtureB.body]:
                 leg.ground_contact = True
+        # ball-ground contact
+        if self.env.ball in [contact.fixtureA.body, contact.fixtureB.body]:
+            if self.env.ball==contact.fixtureA.body \
+                    and contact.fixtureB.body in self.env.terrain:
+                self.env._ball_landed = True
+            elif self.env.ball==contact.fixtureB.body \
+                    and contact.fixtureA.body in self.env.terrain:
+                self.env._ball_landed = True
+        # ball-leg contact
+        if self.env.ball in [contact.fixtureA.body, contact.fixtureB.body]:
+            if self.env.ball==contact.fixtureA.body \
+                    and contact.fixtureB.body in self.env.legs+[self.env.hull]:
+                self.env._ball_kick_start = False
+                self.env._ball_flying = False
+            elif self.env.ball==contact.fixtureB.body \
+                    and contact.fixtureA.body in self.env.legs+[self.env.hull]:
+                self.env._ball_kick_start = False
+                self.env._ball_flying = False
+
     def EndContact(self, contact):
+        # leg-ground contact
         for leg in [self.env.legs[1], self.env.legs[3]]:
             if leg in [contact.fixtureA.body, contact.fixtureB.body]:
                 leg.ground_contact = False
+        # ball-ground contact
+        if self.env.ball in [contact.fixtureA.body, contact.fixtureB.body]:
+            if self.env.ball==contact.fixtureA.body \
+                    and contact.fixtureB.body in self.env.terrain:
+                self.env._ball_landed = False
+            elif self.env.ball==contact.fixtureB.body \
+                    and contact.fixtureA.body in self.env.terrain:
+                self.env._ball_landed = False
+        # ball-leg contact
+        if self.env.ball in [contact.fixtureA.body, contact.fixtureB.body]:
+            if self.env.ball==contact.fixtureA.body \
+                    and contact.fixtureB.body in self.env.legs+[self.env.hull]:
+                self.env._ball_kicked = True
+            elif self.env.ball==contact.fixtureB.body \
+                    and contact.fixtureA.body in self.env.legs+[self.env.hull]:
+                self.env._ball_kicked = True
+
+
 
 
 class BipedalKickerEnv(BipedalWalker):
@@ -136,12 +177,17 @@ class BipedalKickerEnv(BipedalWalker):
             ball_ranges=None)
 
         self.init = False
-        high = np.array([np.inf] * (24+4))  # add ball pos and vel to obs
-        self.observation_space = spaces.Box(-high, high, dtype=np.float32)
+        
+        # high = np.array([np.inf] * (24+4))  # add ball pos and vel to obs
+        # self.observation_space = spaces.Box(-high, high, dtype=np.float32)
+        self.dim_observation = 24+4 # add ball pos and vel to obs
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, 
+                                            shape=(self.dim_observation,), 
+                                            dtype=np.float32)
 
 
     def _get_info_dict(self, obs, action=np.zeros(4)):
-        ball_pos = obs[24:26]
+        ball_pos = self.ball.position
         hull_pose = np.append(np.array(self.unwrapped.hull.position), 
                               self.unwrapped.hull.angle)
         contact_info = obs[np.array([8, 13])] if obs is not None else []
@@ -162,19 +208,33 @@ class BipedalKickerEnv(BipedalWalker):
 
     def _get_done(self, action, obs, done):
         # episode is done when the ball stops, or complete miss
-        ball_pos_x = np.linalg.norm(obs[24]) 
-        ball_vel_x = np.linalg.norm(obs[-2])
+        ball_pos_x = np.linalg.norm(self.ball.position.x) 
+        ball_vel_x = np.linalg.norm(self.ball.linearVelocity.x)
+        ball_pos_y = self.ball.position.y
+        ball_vel_y = self.ball.linearVelocity.y
         biped_vel = np.linalg.norm(np.array(self.unwrapped.hull.linearVelocity))
         # Termination conditions
         done = ball_vel_x<=_BALL_VELX_THRSH and abs(ball_pos_x-BALL_START)>_EPS or \
                ball_vel_x<=_BALL_VELX_THRSH and biped_vel<=_VEL_THRSH 
-               # and np.isclose(ball_pos_x, 0., atol=_EPS)   
+               # and np.isclose(ball_pos_x, 0., atol=_EPS)  
+        # No-bouncing conditions 
+        if self._ball_kicked and ball_vel_y>0.1 and not self._ball_landed:
+            self._ball_flying = True
+
+        if self._ball_flying and self._ball_landed:
+            done_bounce = True
+        else:
+            done_bounce = False
         # print("\n===", self.nstep_internal, obs[-2], obs[-1], biped_vel, action)
         # print("===", ball_vel<=_VEL_THRSH , abs(ball_pos_x-BALL_START)>_EPS)
         # print("===", biped_vel<=_VEL_THRSH , ball_vel<=_VEL_THRSH, 
         #     np.isclose(abs(ball_pos_x-BALL_START), 0., atol=_EPS))
         # print("===", done)            
-        return done
+        # print("\n===", self.nstep_internal, self._ball_kicked, 
+        #                                     self._ball_landed, 
+        #                                     ball_vel_y, ball_pos_y,
+        #                                     self._ball_flying)
+        return done or done_bounce
 
 
     def initialize(self, seed_task, **kwargs):
@@ -204,12 +264,13 @@ class BipedalKickerEnv(BipedalWalker):
         self.nstep_internal += 1
         obs, rew, done, _ = super().step(action)
         # Add ball position and velocity to observation
-        obs = np.concatenate([obs, self.ball.position, self.ball.linearVelocity])
+        obs = np.concatenate([obs, 
+                              self.ball.position, 
+                              self.ball.linearVelocity])
         info_dict = self._get_info_dict(obs, action)
         done = self._get_done(action, obs, done)
         return obs, rew, done, info_dict
 
-#####
 
     def render(self, mode='human', close=False):
         if close:
@@ -290,6 +351,10 @@ class BipedalKickerEnv(BipedalWalker):
 
     def reset(self):
         self.nstep_internal = -1
+        self._ball_kick_start = False
+        self._ball_kicked = False
+        self._ball_landed = False
+        self._ball_flying = False
         self._destroy()
         self.world.contactListener_bug_workaround = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_bug_workaround
@@ -385,7 +450,6 @@ class BipedalKickerEnv(BipedalWalker):
         return self.step(np.array([0,0,0,0]))[0]
 
 
-
     def _generate_terrain(self, hardcore):
         GRASS, STUMP, STAIRS, PIT, _STATES_ = range(5)
         state    = GRASS
@@ -420,3 +484,290 @@ class BipedalKickerEnv(BipedalWalker):
             poly += [ (poly[1][0], 0), (poly[0][0], 0) ]
             self.terrain_poly.append( (poly, color) )
         self.terrain.reverse()
+
+
+
+
+class BipedalKickerAugmentedEnv(BipedalKickerEnv):
+
+    SCALE = 1
+
+    def __init__(self):
+        self.init_body = 0
+        super().__init__()
+        self.param_ranges = np.vstack([self.action_space.low,
+                                       self.action_space.high]).T
+        self.env_info = dict(
+            num_targets=1,
+            num_obstacles=0,
+            wall_geoms=None,
+            ball_geom=None,
+            target_info=[{'xy': (BALL_START, 0)}],
+            striker_ranges=None,
+            ball_ranges=None)
+
+        self.init = False
+        # high = np.array([np.inf] * (24+6))  # add hull pos, ball pos+vel to obs
+        # self.observation_space = spaces.Box(-high, high, dtype=np.float32)
+        self.dim_observation = 24+6 # add ball pos and vel to obs
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, 
+                                            shape=(self.dim_observation,), 
+                                            dtype=np.float32)
+
+
+    def step_base(self, action):
+        #self.hull.ApplyForceToCenter((0, 20), True) -- Uncomment this to receive a bit of stability help
+        control_speed = False  # Should be easier as well
+        if control_speed:
+            self.joints[0].motorSpeed = float(SPEED_HIP  * np.clip(action[0], -1, 1))
+            self.joints[1].motorSpeed = float(SPEED_KNEE * np.clip(action[1], -1, 1))
+            self.joints[2].motorSpeed = float(SPEED_HIP  * np.clip(action[2], -1, 1))
+            self.joints[3].motorSpeed = float(SPEED_KNEE * np.clip(action[3], -1, 1))
+        else:
+            self.joints[0].motorSpeed     = float(SPEED_HIP     * np.sign(action[0]))
+            self.joints[0].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[0]), 0, 1))
+            self.joints[1].motorSpeed     = float(SPEED_KNEE    * np.sign(action[1]))
+            self.joints[1].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[1]), 0, 1))
+            self.joints[2].motorSpeed     = float(SPEED_HIP     * np.sign(action[2]))
+            self.joints[2].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[2]), 0, 1))
+            self.joints[3].motorSpeed     = float(SPEED_KNEE    * np.sign(action[3]))
+            self.joints[3].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[3]), 0, 1))
+
+        self.world.Step(1.0/FPS, 6*30, 2*30)
+
+        pos = self.hull.position
+        vel = self.hull.linearVelocity
+
+        for i in range(10):
+            self.lidar[i].fraction = 1.0
+            self.lidar[i].p1 = pos
+            self.lidar[i].p2 = (
+                pos[0] + math.sin(1.5*i/10.0)*LIDAR_RANGE,
+                pos[1] - math.cos(1.5*i/10.0)*LIDAR_RANGE)
+            self.world.RayCast(self.lidar[i], self.lidar[i].p1, self.lidar[i].p2)
+
+        state = [
+            self.hull.angle,        # Normal angles up to 0.5 here, but sure more is possible.
+            2.0*self.hull.angularVelocity/FPS,
+            0.3*vel.x*(VIEWPORT_W/SCALE)/FPS,  # Normalized to get -1..1 range
+            0.3*vel.y*(VIEWPORT_H/SCALE)/FPS,
+            self.joints[0].angle,   # This will give 1.1 on high up, but it's still OK (and there should be spikes on hiting the ground, that's normal too)
+            self.joints[0].speed / SPEED_HIP,
+            self.joints[1].angle + 1.0,
+            self.joints[1].speed / SPEED_KNEE,
+            1.0 if self.legs[1].ground_contact else 0.0,
+            self.joints[2].angle,
+            self.joints[2].speed / SPEED_HIP,
+            self.joints[3].angle + 1.0,
+            self.joints[3].speed / SPEED_KNEE,
+            1.0 if self.legs[3].ground_contact else 0.0
+            ]
+        state += [self.SCALE*l.fraction for l in self.lidar]
+        assert len(state)==24
+
+        self.scroll = pos.x - VIEWPORT_W/SCALE/5
+
+        shaping  = 130*pos[0]/SCALE   # moving forward is a way to receive reward (normalized to get 300 on completion)
+        shaping -= 5.0*abs(state[0])  # keep head straight, other than that and falling, any behavior is unpunished
+
+        reward = 0
+        if self.prev_shaping is not None:
+            reward = shaping - self.prev_shaping
+        self.prev_shaping = shaping
+
+        for a in action:
+            reward -= 0.00035 * MOTORS_TORQUE * np.clip(np.abs(a), 0, 1)
+            # normalized to about -50.0 using heuristic, more optimal agent should spend less
+
+        done = False
+        if self.game_over or pos[0] < 0:
+            reward = -100
+            done   = True
+        if pos[0] > (TERRAIN_LENGTH-TERRAIN_GRASS)*TERRAIN_STEP:
+            done   = True
+
+        # Add hull position to state        
+        state += [self.SCALE*pos.x, self.SCALE*pos.y]
+        # Add ball position and velocity to state   
+        state += [self.SCALE*self.ball.position.x, 
+                  self.SCALE*self.ball.position.y]  
+        state += [self.SCALE*self.ball.linearVelocity.x, 
+                  self.SCALE*self.ball.linearVelocity.y]   
+
+        return np.array(state), reward, done, {}
+
+
+    def step(self, action):
+        if self.nstep_internal > self.MAX_AGENT_STEPS: 
+            action = 0 * action
+        self.nstep_internal += 1
+        obs, rew, done, _ = self.step_base(action)
+        # Add ball position and velocity to observation
+        info_dict = self._get_info_dict(obs, action)
+        done = self._get_done(action, obs, done)
+        return obs, rew, done, info_dict
+
+
+
+
+class BipedalKickerAugmentedMixScaleEnv(BipedalKickerAugmentedEnv):
+
+    SCALE = 100
+
+
+
+
+################################################################################
+################################################################################
+################################################################################
+
+
+
+class BipedalKickerAugmentedNormalizedEnv(BipedalKickerEnv):
+
+    Y_LOW = 4  # 3.5
+    Y_HIGH = 7
+    TERRAIN_FULL = TERRAIN_STEP*TERRAIN_LENGTH
+
+    def __init__(self):
+        self.init_body = 0
+        super().__init__()
+        self.param_ranges = np.vstack([self.action_space.low,
+                                       self.action_space.high]).T
+        self.env_info = dict(
+            num_targets=1,
+            num_obstacles=0,
+            wall_geoms=None,
+            ball_geom=None,
+            target_info=[{'xy': (BALL_START, 0)}],
+            striker_ranges=None,
+            ball_ranges=None)
+
+        self.init = False
+        # high = np.array([np.inf] * (24+6))  # add hull pos, ball pos+vel to obs
+        # self.observation_space = spaces.Box(-high, high, dtype=np.float32)
+        self.dim_observation = 24+6 # add ball pos and vel to obs
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, 
+                                            shape=(self.dim_observation,), 
+                                            dtype=np.float32)
+
+
+    def step_base(self, action):
+        #self.hull.ApplyForceToCenter((0, 20), True) -- Uncomment this to receive a bit of stability help
+        control_speed = False  # Should be easier as well
+        if control_speed:
+            self.joints[0].motorSpeed = float(SPEED_HIP  * np.clip(action[0], -1, 1))
+            self.joints[1].motorSpeed = float(SPEED_KNEE * np.clip(action[1], -1, 1))
+            self.joints[2].motorSpeed = float(SPEED_HIP  * np.clip(action[2], -1, 1))
+            self.joints[3].motorSpeed = float(SPEED_KNEE * np.clip(action[3], -1, 1))
+        else:
+            self.joints[0].motorSpeed     = float(SPEED_HIP     * np.sign(action[0]))
+            self.joints[0].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[0]), 0, 1))
+            self.joints[1].motorSpeed     = float(SPEED_KNEE    * np.sign(action[1]))
+            self.joints[1].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[1]), 0, 1))
+            self.joints[2].motorSpeed     = float(SPEED_HIP     * np.sign(action[2]))
+            self.joints[2].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[2]), 0, 1))
+            self.joints[3].motorSpeed     = float(SPEED_KNEE    * np.sign(action[3]))
+            self.joints[3].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[3]), 0, 1))
+
+        self.world.Step(1.0/FPS, 6*30, 2*30)
+
+        pos = self.hull.position
+        vel = self.hull.linearVelocity
+
+        for i in range(10):
+            self.lidar[i].fraction = 1.0
+            self.lidar[i].p1 = pos
+            self.lidar[i].p2 = (
+                pos[0] + math.sin(1.5*i/10.0)*LIDAR_RANGE,
+                pos[1] - math.cos(1.5*i/10.0)*LIDAR_RANGE)
+            self.world.RayCast(self.lidar[i], self.lidar[i].p1, self.lidar[i].p2)
+
+        state = [
+            self.hull.angle,        # Normal angles up to 0.5 here, but sure more is possible.
+            2.0*self.hull.angularVelocity/FPS,
+            0.3*vel.x*(VIEWPORT_W/SCALE)/FPS,  # Normalized to get -1..1 range
+            0.3*vel.y*(VIEWPORT_H/SCALE)/FPS,
+            self.joints[0].angle,   # This will give 1.1 on high up, but it's still OK (and there should be spikes on hiting the ground, that's normal too)
+            self.joints[0].speed / SPEED_HIP,
+            self.joints[1].angle + 1.0,
+            self.joints[1].speed / SPEED_KNEE,
+            1.0 if self.legs[1].ground_contact else 0.0,
+            self.joints[2].angle,
+            self.joints[2].speed / SPEED_HIP,
+            self.joints[3].angle + 1.0,
+            self.joints[3].speed / SPEED_KNEE,
+            1.0 if self.legs[3].ground_contact else 0.0
+            ]
+        state += [l.fraction for l in self.lidar]
+        assert len(state)==24
+
+        self.scroll = pos.x - VIEWPORT_W/SCALE/5
+
+        shaping  = 130*pos[0]/SCALE   # moving forward is a way to receive reward (normalized to get 300 on completion)
+        shaping -= 5.0*abs(state[0])  # keep head straight, other than that and falling, any behavior is unpunished
+
+        reward = 0
+        if self.prev_shaping is not None:
+            reward = shaping - self.prev_shaping
+        self.prev_shaping = shaping
+
+        for a in action:
+            reward -= 0.00035 * MOTORS_TORQUE * np.clip(np.abs(a), 0, 1)
+            # normalized to about -50.0 using heuristic, more optimal agent should spend less
+
+        done = False
+        if self.game_over or pos[0] < 0:
+            reward = -100
+            done   = True
+        if pos[0] > (TERRAIN_LENGTH-TERRAIN_GRASS)*TERRAIN_STEP:
+            done   = True
+
+        # Add hull position to state        
+        state += [pos.x / self.TERRAIN_FULL, 
+                  (pos.y-self.Y_LOW) / (self.Y_HIGH-self.Y_LOW)]
+        # Add ball position and velocity to state   
+        state += [self.ball.position.x / self.TERRAIN_FULL, 
+                  (self.ball.position.y-self.Y_LOW) / (self.Y_HIGH-self.Y_LOW)]  
+        state += [self.ball.linearVelocity.x, 
+                  self.ball.linearVelocity.y]   
+
+        return np.array(state), reward, done, {}
+
+
+    def step(self, action):
+        if self.nstep_internal > self.MAX_AGENT_STEPS: 
+            action = 0 * action
+        self.nstep_internal += 1
+        obs, rew, done, _ = self.step_base(action)
+        # Add ball position and velocity to observation
+        info_dict = self._get_info_dict(obs, action)
+        done = self._get_done(action, obs, done)
+        return obs, rew, done, info_dict
+
+
+################################################################################
+################################################################################
+################################################################################
+
+
+
+class BipedalKickerBounceEnv(BipedalKickerEnv):
+
+    def _get_done(self, action, obs, done):
+        # episode is done when the ball stops, or complete miss
+        ball_pos_x = np.linalg.norm(self.ball.position.x) 
+        ball_vel_x = np.linalg.norm(self.ball.linearVelocity.x)
+        biped_vel = np.linalg.norm(np.array(self.unwrapped.hull.linearVelocity))
+        # Termination conditions
+        done = ball_vel_x<=_BALL_VELX_THRSH and \
+                    abs(ball_pos_x-BALL_START)>_EPS or \
+               ball_vel_x<=_BALL_VELX_THRSH and biped_vel<=_VEL_THRSH 
+               # and np.isclose(ball_pos_x, 0., atol=_EPS)   
+        # print("\n===", self.nstep_internal, obs[-2], obs[-1], biped_vel, action)
+        # print("===", ball_vel<=_VEL_THRSH , abs(ball_pos_x-BALL_START)>_EPS)
+        # print("===", biped_vel<=_VEL_THRSH , ball_vel<=_VEL_THRSH, 
+        #     np.isclose(abs(ball_pos_x-BALL_START), 0., atol=_EPS))
+        # print("===", done)            
+        return done
+

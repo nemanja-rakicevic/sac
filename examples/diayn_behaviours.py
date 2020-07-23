@@ -86,7 +86,7 @@ ENV_PARAMS = {
         'scale_entropy': 0.1,
         'num_skills': 10000,
         'metric':
-            {"type": "gait_grid_small", 
+            {"type": "simple_grid", 
              "dim": 10}
     },
 
@@ -98,7 +98,7 @@ ENV_PARAMS = {
         'scale_entropy': 0.1,
         'num_skills': 10000,
         'metric':
-            {"type": "gait_grid", 
+            {"type": "simple_grid", 
              "dim": 10}
     },
     'bd-quadruped-kicker': {
@@ -107,10 +107,10 @@ ENV_PARAMS = {
         'max_path_length': 5000,
         'n_epochs': 100000,
         'scale_entropy': 0.1,
-        'num_skills': 15300,
+        'num_skills': 10000,
         'metric':
-            {"type": "contact_grid", 
-             "dim": 30}
+            {"type": "simple_grid", 
+             "dim": 10}
     },
 }
 

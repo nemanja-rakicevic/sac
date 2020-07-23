@@ -1,4 +1,9 @@
 
+from .gym_env import GymEnv
+from .multigoal import MultiGoalEnv
+
+from gym.envs.registration import register
+
 
 ### Box2D envs ###
 
@@ -7,35 +12,35 @@
 
 register(
     id='StrikerEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_striker:StrikerEnv',
+    entry_point='sac.envs.box2d.env_striker:StrikerEnv',
     max_episode_steps=1000,
     reward_threshold=0,
 )
 
 register(
     id='StrikerAugmentedEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_striker:StrikerAugmentedEnv',
+    entry_point='sac.envs.box2d.env_striker:StrikerAugmentedEnv',
     max_episode_steps=1000,
     reward_threshold=0,
 )
 
 register(
     id='StrikerAugmentedMixScaleEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_striker:StrikerAugmentedMixScaleEnv',
+    entry_point='sac.envs.box2d.env_striker:StrikerAugmentedMixScaleEnv',
     max_episode_steps=1000,
     reward_threshold=0,
 )
 
 register(
     id='StrikerAugmentedConstantEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_striker:StrikerAugmentedConstantEnv',
+    entry_point='sac.envs.box2d.env_striker:StrikerAugmentedConstantEnv',
     max_episode_steps=1000,
     reward_threshold=0,
 )
 
 register(
     id='StrikerTargetEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_striker:StrikerTargetEnv',
+    entry_point='sac.envs.box2d.env_striker:StrikerTargetEnv',
     max_episode_steps=1000,
     reward_threshold=0,
 )
@@ -44,7 +49,7 @@ register(
 
 register(
     id='BipedalWalkerEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_bipedal_walker:BipedalWalkerEnv',
+    entry_point='sac.envs.box2d.env_bipedal_walker:BipedalWalkerEnv',
     max_episode_steps=500,
     reward_threshold=0,
 )
@@ -52,7 +57,7 @@ register(
 
 register(
     id='BipedalWalkerAugmentedEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_bipedal_walker:BipedalWalkerAugmentedEnv',
+    entry_point='sac.envs.box2d.env_bipedal_walker:BipedalWalkerAugmentedEnv',
     max_episode_steps=500,
     reward_threshold=0,
 )
@@ -60,7 +65,7 @@ register(
 
 register(
     id='BipedalWalkerAugmentedMixScaleEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_bipedal_walker:BipedalWalkerAugmentedMixScaleEnv',
+    entry_point='sac.envs.box2d.env_bipedal_walker:BipedalWalkerAugmentedMixScaleEnv',
     max_episode_steps=500,
     reward_threshold=0,
 )
@@ -68,7 +73,7 @@ register(
 
 register(
     id='BipedalWalkerAugmentedNormalizedEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_bipedal_walker:BipedalWalkerAugmentedNormalizedEnv',
+    entry_point='sac.envs.box2d.env_bipedal_walker:BipedalWalkerAugmentedNormalizedEnv',
     max_episode_steps=500,
     reward_threshold=0,
 )
@@ -77,7 +82,7 @@ register(
 
 register(
     id='BipedalKickerEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_bipedal_kicker:BipedalKickerEnv',
+    entry_point='sac.envs.box2d.env_bipedal_kicker:BipedalKickerEnv',
     max_episode_steps=2000,
     reward_threshold=0,
 )
@@ -85,7 +90,7 @@ register(
 
 register(
     id='BipedalKickerAugmentedEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_bipedal_kicker:BipedalKickerAugmentedEnv',
+    entry_point='sac.envs.box2d.env_bipedal_kicker:BipedalKickerAugmentedEnv',
     max_episode_steps=500,
     reward_threshold=0,
 )
@@ -93,7 +98,7 @@ register(
 
 register(
     id='BipedalKickerAugmentedMixScaleEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_bipedal_kicker:BipedalKickerAugmentedMixScaleEnv',
+    entry_point='sac.envs.box2d.env_bipedal_kicker:BipedalKickerAugmentedMixScaleEnv',
     max_episode_steps=500,
     reward_threshold=0,
 )
@@ -101,7 +106,7 @@ register(
 
 register(
     id='BipedalKickerAugmentedNormalizedEnv-v0',
-    entry_point='behaviour_representations.envs.box2d.env_bipedal_kicker:BipedalKickerAugmentedNormalizedEnv',
+    entry_point='sac.envs.box2d.env_bipedal_kicker:BipedalKickerAugmentedNormalizedEnv',
     max_episode_steps=500,
     reward_threshold=0,
 )
@@ -113,7 +118,7 @@ register(
 
 register(
     id='QuadrupedWalkerEnv-v0',
-    entry_point='behaviour_representations.envs.pybullet.env_quadruped_walker:QuadrupedWalkerEnv',
+    entry_point='sac.envs.pybullet.env_quadruped_walker:QuadrupedWalkerEnv',
     max_episode_steps=300,
     reward_threshold=0,
 )
@@ -121,14 +126,14 @@ register(
 
 register(
     id='QuadrupedWalkerAugmentedEnv-v0',
-    entry_point='behaviour_representations.envs.pybullet.env_quadruped_walker:QuadrupedWalkerAugmentedEnv',
+    entry_point='sac.envs.pybullet.env_quadruped_walker:QuadrupedWalkerAugmentedEnv',
     max_episode_steps=300,
     reward_threshold=0,
 )
 
 register(
     id='QuadrupedWalkerAugmentedMixScaleEnv-v0',
-    entry_point='behaviour_representations.envs.pybullet.env_quadruped_walker:QuadrupedWalkerAugmentedMixScaleEnv',
+    entry_point='sac.envs.pybullet.env_quadruped_walker:QuadrupedWalkerAugmentedMixScaleEnv',
     max_episode_steps=300,
     reward_threshold=0,
 )
@@ -138,7 +143,7 @@ register(
 
 register(
     id='QuadrupedKickerEnv-v0',
-    entry_point='behaviour_representations.envs.pybullet.env_quadruped_kicker:QuadrupedKickerEnv',
+    entry_point='sac.envs.pybullet.env_quadruped_kicker:QuadrupedKickerEnv',
     max_episode_steps=5000,
     reward_threshold=0,
 )
@@ -146,7 +151,7 @@ register(
 
 register(
     id='QuadrupedKickerAugmentedEnv-v0',
-    entry_point='behaviour_representations.envs.pybullet.env_quadruped_kicker:QuadrupedAugmentedKickerEnv',
+    entry_point='sac.envs.pybullet.env_quadruped_kicker:QuadrupedAugmentedKickerEnv',
     max_episode_steps=5000,
     reward_threshold=0,
 )
@@ -154,7 +159,7 @@ register(
 
 register(
     id='QuadrupedKickerAugmentedMixScaleEnv-v0',
-    entry_point='behaviour_representations.envs.pybullet.env_quadruped_kicker:QuadrupedKickerAugmentedMixScaleEnv',
+    entry_point='sac.envs.pybullet.env_quadruped_kicker:QuadrupedKickerAugmentedMixScaleEnv',
     max_episode_steps=5000,
     reward_threshold=0,
 )
@@ -165,7 +170,7 @@ register(
 
 register(
     id='QuadrupedKickerBoundedEnv-v0',
-    entry_point='behaviour_representations.envs.pybullet.env_quadruped_kicker:QuadrupedKickerEnv',
+    entry_point='sac.envs.pybullet.env_quadruped_kicker:QuadrupedKickerEnv',
     max_episode_steps=5000,
     reward_threshold=0,
 )

@@ -55,9 +55,9 @@ SHARED_PARAMS = {
 
 
 ENV_PARAMS = {
-    'bd-striker': {
-        'prefix': 'striker',
-        'env_name': 'StrikerEnv-v0',
+    'bd-striker-augmented': {
+        'prefix': 'striker_augmented',
+        'env_name': 'StrikerAugmentedEnv-v0',
         'max_path_length': 1000,
         'n_epochs': 100000,
         'scale_entropy': 0.1,
@@ -65,11 +65,22 @@ ENV_PARAMS = {
         'metric':
             {"type": "contact_grid", 
              "dim": 30}
-
     },
-    'bd-bipedal-walker': {
-        'prefix': 'bipedal_walker',
-        'env_name': 'BipedalWalkerEnv-v0',
+    'bd-striker-augmented-mix-scale': {
+        'prefix': 'striker_augmented_mix_scale',
+        'env_name': 'StrikerAugmentedMixScaleEnv-v0',
+        'max_path_length': 1000,
+        'n_epochs': 100000,
+        'scale_entropy': 0.1,
+        'num_skills': 15300,
+        'metric':
+            {"type": "contact_grid", 
+             "dim": 30}
+    },
+
+    'bd-bipedal-walker-augmented': {
+        'prefix': 'bipedal_walker_augmented',
+        'env_name': 'BipedalWalkerAugmentedEnv-v0',
         'max_path_length': 500,
         'n_epochs': 100000,
         'scale_entropy': 0.1,
@@ -78,10 +89,55 @@ ENV_PARAMS = {
             {"type": "gait_grid", 
              "dim": 10}
     },
-    'bd-bipedal-kicker': {
-        'prefix': 'bipedal_kicker',
-        'env_name': 'BipedalKickerEnv-v0',
-        'max_path_length': 2000,
+    'bd-bipedal-walker-augmented-normalized': {
+        'prefix': 'bipedal_walker_augmented_normalized',
+        'env_name': 'BipedalWalkerAugmentedNormalizedEnv-v0',
+        'max_path_length': 500,
+        'n_epochs': 100000,
+        'scale_entropy': 0.1,
+        'num_skills': 12500,
+        'metric':
+            {"type": "gait_grid", 
+             "dim": 10}
+    },
+    'bd-bipedal-walker-augmented-mix-scale': {
+        'prefix': 'bipedal_walker_augmented_mix_scale',
+        'env_name': 'BipedalWalkerAugmentedMixScaleEnv-v0',
+        'max_path_length': 500,
+        'n_epochs': 100000,
+        'scale_entropy': 0.1,
+        'num_skills': 12500,
+        'metric':
+            {"type": "gait_grid", 
+             "dim": 10}
+    },
+
+    'bd-bipedal-kicker-augmented': {
+        'prefix': 'bipedal_kicker_augmented',
+        'env_name': 'BipedalKickerAugmentedEnv-v0',
+        'max_path_length': 500,
+        'n_epochs': 100000,
+        'scale_entropy': 0.1,
+        'num_skills': 10000,
+        'metric':
+            {"type": "simple_grid", 
+             "dim": 10}
+    },
+    'bd-bipedal-kicker-augmented-normalized': {
+        'prefix': 'bipedal_kicker_augmented_normalized',
+        'env_name': 'BipedalKickerAugmentedNormalizedEnv-v0',
+        'max_path_length': 500,
+        'n_epochs': 100000,
+        'scale_entropy': 0.1,
+        'num_skills': 10000,
+        'metric':
+            {"type": "simple_grid", 
+             "dim": 10}
+    },
+    'bd-bipedal-kicker-augmented-mix-scale': {
+        'prefix': 'bipedal_kicker_augmented_mix_scale',
+        'env_name': 'BipedalKickerAugmentedMixScaleEnv-v0',
+        'max_path_length': 500,
         'n_epochs': 100000,
         'scale_entropy': 0.1,
         'num_skills': 10000,
@@ -90,9 +146,9 @@ ENV_PARAMS = {
              "dim": 10}
     },
 
-    'bd-quadruped-walker': {
-        'prefix': 'quadruped_walker',
-        'env_name': 'QuadrupedWalkerEnv-v0',
+    'bd-quadruped-walker-augmented': {
+        'prefix': 'quadruped_walker_augmented',
+        'env_name': 'QuadrupedWalkerAugmentedEnv-v0',
         'max_path_length': 300,
         'n_epochs': 100000,
         'scale_entropy': 0.1,
@@ -101,9 +157,32 @@ ENV_PARAMS = {
             {"type": "simple_grid", 
              "dim": 10}
     },
-    'bd-quadruped-kicker': {
-        'prefix': 'quadruped_kicker',
-        'env_name': 'QuadrupedKickerEnv-v0',
+    'bd-quadruped-walker-augmented-mix-scale': {
+        'prefix': 'quadruped_walker_augmented_mix_scale',
+        'env_name': 'QuadrupedWalkerAugmentedMixScaleEnv-v0',
+        'max_path_length': 300,
+        'n_epochs': 100000,
+        'scale_entropy': 0.1,
+        'num_skills': 10000,
+        'metric':
+            {"type": "simple_grid", 
+             "dim": 10}
+    },
+
+    'bd-quadruped-kicker-augmented': {
+        'prefix': 'quadruped_kicker_augmented',
+        'env_name': 'QuadrupedKickerAugmentedEnv-v0',
+        'max_path_length': 5000,
+        'n_epochs': 100000,
+        'scale_entropy': 0.1,
+        'num_skills': 10000,
+        'metric':
+            {"type": "simple_grid", 
+             "dim": 10}
+    },
+    'bd-quadruped-kicker-augmented-mix-scale': {
+        'prefix': 'quadruped_kicker_augmented_mix_scale',
+        'env_name': 'QuadrupedKickerAugmentedMixScaleEnv-v0',
         'max_path_length': 5000,
         'n_epochs': 100000,
         'scale_entropy': 0.1,
